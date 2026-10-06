@@ -7,6 +7,7 @@ import { PublicConfigModule } from './modules/public-config/public-config.module
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { CatalogModule } from './modules/catalog/catalog.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AdminModule } from './modules/admin/admin.module.js';
     AuthModule,
     UsersModule,
     AdminModule,
+    CatalogModule,
   ],
 })
 export class AppModule implements NestModule {

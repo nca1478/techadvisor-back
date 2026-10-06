@@ -53,3 +53,134 @@ model RefreshToken {
   @@index([userId])
   @@map("refresh_tokens")
 }
+
+// --- Catalog (Fase 1) --------------------------------------------------------
+// Read-only public surface in P1.2 (writes/admin arrive in P1.7).
+// Money: INTEGER minor units + ISO 4217 code, never float (see ADR 0007).
+// I18n: base columns hold DEFAULT_LOCALE content; translation tables hold
+// other locales with fallback to base (see ADR 0008).
+
+/** Lifecycle of a product. The public API only ever returns ACTIVE. */
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  parentId  String?  @map("parent_id") @db.Uuid
+  parent    Category?  @relation("CategoryChildren", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryChildren")
+  products  Product[]
+  translations CategoryTranslation[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  id         String   @id @default(uuid()) @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locale     String
+  name       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([categoryId, locale])
+  @@index([locale])
+  @@map("category_translations")
+}
+
+model Brand {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("brands")
+}
+
+model Product {
+  id          String        @id @default(uuid()) @db.Uuid
+  sku         String        @unique
+  name        String
+  slug        String        @unique
+  description String
+  brandId     String        @map("brand_id") @db.Uuid
+  brand       Brand         @relation(fields: [brandId], references: [id])
+  categoryId  String        @map("category_id") @db.Uuid
+  category    Category      @relation(fields: [categoryId], references: [id])
+  /** Base price in minor units (see ADR 0007). Always BASE_CURRENCY. */
+  priceAmount Int           @map("price_amount")
+  /** ISO 4217 code of `priceAmount`. */
+  currency    String
+  status      ProductStatus @default(DRAFT)
+  /** Normalized structured attributes (snake_case keys, see specs/). */
+  specs       Json          @default("{}") @db.JsonB
+  images      ProductImage[]
+  prices      ProductPrice[]
+  translations ProductTranslation[]
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([status])
+  @@map("products")
+}
+
+/** Fixed price per currency overriding the base price (see ADR 0007). */
+model ProductPrice {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  currency  String
+  amount    Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, currency])
+  @@index([currency])
+  @@map("product_prices")
+}
+
+model ProductTranslation {
+  id          String   @id @default(uuid()) @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locale      String
+  name        String
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, locale])
+  @@index([locale])
+  @@map("product_translations")
+}
+
+/**
+ * Product images stored as https URLs only (no file uploads in this phase).
+ * Ordered by `position`; the lowest position is the primary image.
+ */
+model ProductImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   @db.VarChar(2048)
+  alt       String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productId, position])
+  @@map("product_images")
+}
