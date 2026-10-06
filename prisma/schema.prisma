@@ -31,6 +31,7 @@ model User {
   updatedAt    DateTime       @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
   carts        Cart[]
+  orders       Order[]
 
   @@map("users")
 }
@@ -131,6 +132,7 @@ model Product {
   translations ProductTranslation[]
   inventory   Inventory?
   cartItems   CartItem[]
+  orderItems  OrderItem[]
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -241,4 +243,60 @@ model CartItem {
   @@unique([cartId, productId])
   @@index([productId])
   @@map("cart_items")
+}
+
+// --- Orders (Fase 1) ---------------------------------------------------------
+// Checkout from the authenticated user cart: prices are frozen into
+// `OrderItem.unit_price_amount` (minor units, order currency) and stock is
+// reserved atomically at creation (see OrdersService + ADR 0011). Totals are
+// always computed server-side from the database — the client only sends the
+// cart (implicit) + shipping address. `shipping` is a JSONB snapshot of the
+// validated international address (ISO 3166-1 country).
+
+/** Order lifecycle. Only the guarded transitions in `order-status.ts` apply. */
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @map("user_id") @db.Uuid
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      OrderStatus @default(PENDING_PAYMENT)
+  /** ISO 4217 code of `totalAmount` and every item price. */
+  currency    String
+  /** Frozen total in minor units (sum of item lines at creation). */
+  totalAmount Int         @map("total_amount")
+  /** Validated shipping address snapshot (see orders.schemas.ts). */
+  shipping    Json        @db.JsonB
+  items       OrderItem[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String   @map("product_id") @db.Uuid
+  product         Product  @relation(fields: [productId], references: [id])
+  qty             Int
+  /** Frozen unit price in minor units, in the order currency. */
+  unitPriceAmount Int      @map("unit_price_amount")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([orderId, productId])
+  @@index([productId])
+  @@map("order_items")
 }
