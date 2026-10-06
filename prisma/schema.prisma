@@ -1,0 +1,14 @@
+// Prisma schema — TechAdvisor backend.
+// Business models are added in later phases. This file intentionally starts
+// with datasource + generator only (see ADR 0003); the first migration only
+// enables the pgvector extension.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

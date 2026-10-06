@@ -25,6 +25,18 @@ docker compose down           # stop the infrastructure (keeps data volumes)
 docker compose down -v        # stop AND delete data volumes (fresh start)
 ```
 
+> If host port `5432` is already taken on your machine (e.g. a native
+> PostgreSQL), create a gitignored `docker-compose.override.yml` remapping it
+> (e.g. `"5433:5432"` for `postgres`) and point your local `.env`
+> `DATABASE_URL` at that port. See ADR `0003`.
+
+## Database (Prisma)
+
+```bash
+npx prisma migrate dev   # apply pending migrations (creates the DB if needed)
+npx prisma generate      # regenerate the client (also runs on `npm ci` via `postinstall`)
+```
+
 ## Scripts
 
 | Script            | What it does                    |
