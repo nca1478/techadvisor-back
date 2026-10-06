@@ -131,6 +131,7 @@ model Product {
   prices      ProductPrice[]
   translations ProductTranslation[]
   inventory   Inventory?
+  movements   InventoryMovement[]
   cartItems   CartItem[]
   orderItems  OrderItem[]
   createdAt   DateTime      @default(now()) @map("created_at")
@@ -208,6 +209,27 @@ model Inventory {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("inventory")
+}
+
+/**
+ * Audit trail of every manual stock adjustment (admin writes, P1.7).
+ * One row per adjustment: `delta` is the signed change applied to
+ * `inventory.stock` (never to `reserved`), `reason` is the human motive,
+ * and `stockAfter` is the resulting physical stock. Rows are append-only:
+ * never updated or deleted by application code (see AdminService).
+ */
+model InventoryMovement {
+  id         String   @id @default(uuid()) @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  delta      Int
+  reason     String   @db.VarChar(280)
+  stockAfter Int      @map("stock_after")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([productId, createdAt])
+  @@map("inventory_movements")
 }
 
 // --- Cart (Fase 1) -----------------------------------------------------------
