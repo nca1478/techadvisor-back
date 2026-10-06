@@ -8,7 +8,10 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 async function bootstrap() {
   // Fails fast with a legible error when required env vars are missing.
   const config = parseEnv();
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // `rawBody: true` keeps the raw request bytes on `req.rawBody` so the
+  // Stripe webhook signature can be verified (see ADR 0012). JSON parsing
+  // is unaffected for every other route.
+  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true });
   app.setGlobalPrefix('api/v1');
 
   // CORS restricted to the configured browser origins.

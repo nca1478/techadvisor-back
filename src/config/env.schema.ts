@@ -48,6 +48,41 @@ const supportedLocalesSchema = z.preprocess(
     .min(1, { error: 'must list at least one locale (e.g. en,es)' }),
 );
 
+const emptyToUndefined = (value: unknown): unknown =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
+/**
+ * Test-mode-only secret key. Live keys (`sk_live_...`) are rejected on
+ * purpose: this codebase must never run against live Stripe (ADR 0012).
+ * Optional so local development and CI work without a Stripe account;
+ * the payments module returns 503 while it is unset.
+ */
+const stripeSecretKeySchema = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .startsWith('sk_test_', { error: 'STRIPE_SECRET_KEY must be a test-mode key (sk_test_...)' })
+    .optional(),
+);
+
+const stripePublishableKeySchema = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .startsWith('pk_test_', {
+      error: 'STRIPE_PUBLISHABLE_KEY must be a test-mode key (pk_test_...)',
+    })
+    .optional(),
+);
+
+const stripeWebhookSecretSchema = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .min(8, { error: 'STRIPE_WEBHOOK_SECRET must be at least 8 characters long' })
+    .optional(),
+);
+
 const envSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -85,6 +120,9 @@ const envSchema = z
         z.boolean(),
       )
       .default(true),
+    STRIPE_SECRET_KEY: stripeSecretKeySchema,
+    STRIPE_PUBLISHABLE_KEY: stripePublishableKeySchema,
+    STRIPE_WEBHOOK_SECRET: stripeWebhookSecretSchema,
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',

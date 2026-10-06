@@ -275,6 +275,7 @@ model Order {
   /** Validated shipping address snapshot (see orders.schemas.ts). */
   shipping    Json        @db.JsonB
   items       OrderItem[]
+  payments    Payment[]
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -299,4 +300,45 @@ model OrderItem {
   @@unique([orderId, productId])
   @@index([productId])
   @@map("order_items")
+}
+
+// --- Payments (Fase 1) -------------------------------------------------------
+// Stripe test-mode charges behind the `PaymentProvider` interface (ADR 0012).
+// A Payment mirrors one checkout attempt for an order; the order status itself
+// stays the source of truth for fulfillment. `provider` is a free-form string
+// (e.g. "stripe") so a second provider needs no schema change.
+// `ProcessedWebhookEvent` records every applied webhook `event_id` (UNIQUE)
+// so redelivered events are acknowledged without repeating side effects.
+
+/** Lifecycle of one payment attempt. Terminal states never change. */
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+model Payment {
+  id          String        @id @default(uuid()) @db.Uuid
+  orderId     String        @map("order_id") @db.Uuid
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider    String
+  status      PaymentStatus @default(PENDING)
+  /** Provider-side reference (Stripe Checkout Session / PaymentIntent id). */
+  externalRef String?       @map("external_ref")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([externalRef])
+  @@map("payments")
+}
+
+model ProcessedWebhookEvent {
+  /** Provider event id (e.g. `evt_...`); UNIQUE = idempotency key. */
+  eventId   String   @id @map("event_id")
+  provider  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("processed_webhook_events")
 }

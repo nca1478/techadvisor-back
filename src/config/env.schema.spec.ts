@@ -76,4 +76,53 @@ describe('parseEnv', () => {
   it('fails with a legible error when JWT_SECRET is too short', () => {
     expect(() => parseEnv({ ...VALID_ENV, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
   });
+
+  it('leaves Stripe keys unset when absent (payments stay disabled)', () => {
+    const config = parseEnv({ ...VALID_ENV });
+
+    expect(config.STRIPE_SECRET_KEY).toBeUndefined();
+    expect(config.STRIPE_PUBLISHABLE_KEY).toBeUndefined();
+    expect(config.STRIPE_WEBHOOK_SECRET).toBeUndefined();
+  });
+
+  it('accepts test-mode Stripe keys', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      STRIPE_SECRET_KEY: 'sk_test_123',
+      STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
+      STRIPE_WEBHOOK_SECRET: 'whsec_test123',
+    });
+
+    expect(config.STRIPE_SECRET_KEY).toBe('sk_test_123');
+    expect(config.STRIPE_PUBLISHABLE_KEY).toBe('pk_test_123');
+    expect(config.STRIPE_WEBHOOK_SECRET).toBe('whsec_test123');
+  });
+
+  it('treats empty Stripe variables as unset', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      STRIPE_SECRET_KEY: '',
+      STRIPE_PUBLISHABLE_KEY: '   ',
+      STRIPE_WEBHOOK_SECRET: '',
+    });
+
+    expect(config.STRIPE_SECRET_KEY).toBeUndefined();
+    expect(config.STRIPE_PUBLISHABLE_KEY).toBeUndefined();
+    expect(config.STRIPE_WEBHOOK_SECRET).toBeUndefined();
+  });
+
+  it('rejects live Stripe keys (test mode only, see ADR 0012)', () => {
+    expect(() => parseEnv({ ...VALID_ENV, STRIPE_SECRET_KEY: 'sk_live_123' })).toThrow(
+      /STRIPE_SECRET_KEY/,
+    );
+    expect(() => parseEnv({ ...VALID_ENV, STRIPE_PUBLISHABLE_KEY: 'pk_live_123' })).toThrow(
+      /STRIPE_PUBLISHABLE_KEY/,
+    );
+  });
+
+  it('rejects a too-short webhook secret', () => {
+    expect(() => parseEnv({ ...VALID_ENV, STRIPE_WEBHOOK_SECRET: 'short' })).toThrow(
+      /STRIPE_WEBHOOK_SECRET/,
+    );
+  });
 });
