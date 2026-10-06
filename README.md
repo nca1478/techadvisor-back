@@ -12,6 +12,19 @@ npm ci
 npm run dev      # watch mode on http://localhost:3001
 ```
 
+## Infrastructure (PostgreSQL + pgvector, Redis)
+
+Local infrastructure runs via Docker Compose from this folder (`backend/`).
+The API and web run with `npm run dev` — no Dockerfiles.
+
+```bash
+cp .env.example .env          # once: create your local env file (never commit .env)
+docker compose up -d          # start postgres (5432) + redis (6379)
+docker compose ps             # both services should show "healthy"
+docker compose down           # stop the infrastructure (keeps data volumes)
+docker compose down -v        # stop AND delete data volumes (fresh start)
+```
+
 ## Scripts
 
 | Script            | What it does                    |
