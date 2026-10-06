@@ -1,0 +1,14 @@
+[
+  {
+    "email": "admin@techadvisor.local",
+    "password": "Admin123!",
+    "name": "Store Admin",
+    "role": "ADMIN"
+  },
+  {
+    "email": "customer@techadvisor.local",
+    "password": "Customer123!",
+    "name": "Demo Customer",
+    "role": "CUSTOMER"
+  }
+]

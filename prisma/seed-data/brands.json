@@ -1,0 +1,12 @@
+[
+  { "slug": "lenovo", "name": "Lenovo" },
+  { "slug": "asus", "name": "ASUS" },
+  { "slug": "msi", "name": "MSI" },
+  { "slug": "gigabyte", "name": "Gigabyte" },
+  { "slug": "amd", "name": "AMD" },
+  { "slug": "intel", "name": "Intel" },
+  { "slug": "corsair", "name": "Corsair" },
+  { "slug": "samsung", "name": "Samsung" },
+  { "slug": "kingston", "name": "Kingston" },
+  { "slug": "seasonic", "name": "Seasonic" }
+]
