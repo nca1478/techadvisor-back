@@ -30,6 +30,7 @@ model User {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  carts        Cart[]
 
   @@map("users")
 }
@@ -129,6 +130,7 @@ model Product {
   prices      ProductPrice[]
   translations ProductTranslation[]
   inventory   Inventory?
+  cartItems   CartItem[]
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -204,4 +206,39 @@ model Inventory {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("inventory")
+}
+
+// --- Cart (Fase 1) -----------------------------------------------------------
+// Guest carts are keyed by `sessionId` (signed httpOnly `sid` cookie, see ADR
+// 0010); user carts by `userId`. At most one cart per user and at most one
+// per session: enforced by unique constraints (`@unique` on nullable columns
+// is enough in PostgreSQL — NULLs never conflict — plus partial indexes in
+// the migration as documentation/backstop). Prices/totals are NEVER stored:
+// the cart response is always computed from the DB (see CartService).
+
+model Cart {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String?    @unique @map("user_id") @db.Uuid
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?    @unique @map("session_id")
+  items     CartItem[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  cartId    String   @map("cart_id") @db.Uuid
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty       Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
 }
