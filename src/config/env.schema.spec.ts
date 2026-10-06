@@ -73,6 +73,18 @@ describe('parseEnv', () => {
     expect(parseEnv(withoutDocsFlag).DOCS_ENABLED).toBe(true);
   });
 
+  it('parses REQUEST_LOGGING_ENABLED as a boolean and defaults to true', () => {
+    expect(
+      parseEnv({ ...VALID_ENV, REQUEST_LOGGING_ENABLED: 'false' }).REQUEST_LOGGING_ENABLED,
+    ).toBe(false);
+    expect(parseEnv({ ...VALID_ENV, REQUEST_LOGGING_ENABLED: '0' }).REQUEST_LOGGING_ENABLED).toBe(
+      false,
+    );
+    const withoutFlag = { ...VALID_ENV };
+    delete withoutFlag.REQUEST_LOGGING_ENABLED;
+    expect(parseEnv(withoutFlag).REQUEST_LOGGING_ENABLED).toBe(true);
+  });
+
   it('fails with a legible error when JWT_SECRET is too short', () => {
     expect(() => parseEnv({ ...VALID_ENV, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
   });

@@ -120,6 +120,15 @@ const envSchema = z
         z.boolean(),
       )
       .default(true),
+    REQUEST_LOGGING_ENABLED: z
+      .preprocess(
+        (value) =>
+          typeof value === 'string'
+            ? value.trim().toLowerCase() === 'true' || value.trim() === '1'
+            : value,
+        z.boolean(),
+      )
+      .default(true),
     STRIPE_SECRET_KEY: stripeSecretKeySchema,
     STRIPE_PUBLISHABLE_KEY: stripePublishableKeySchema,
     STRIPE_WEBHOOK_SECRET: stripeWebhookSecretSchema,
