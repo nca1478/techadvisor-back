@@ -11,6 +11,6 @@ import { PublicConfigModule } from './modules/public-config/public-config.module
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     // Structured JSON logging with requestId for every route (no bodies).
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    consumer.apply(RequestLoggingMiddleware).forRoutes('{*path}');
   }
 }
