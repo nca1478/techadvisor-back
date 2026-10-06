@@ -97,6 +97,15 @@ export class ProductListItemDto {
   @ApiProperty({ example: { ram_gb: 16, cpu: 'Intel Core Ultra 7 155H' } })
   specs!: Record<string, unknown>;
 
+  @ApiProperty({ example: true, description: 'Whether at least one unit is available.' })
+  inStock!: boolean;
+
+  @ApiProperty({
+    example: 7,
+    description: 'Available units, capped at 10 so the API never leaks exact stock.',
+  })
+  availableQuantity!: number;
+
   @ApiProperty({ example: 'https://cdn.example.com/p/laptop-13-front.jpg', nullable: true })
   imageUrl!: string | null;
 
@@ -148,6 +157,15 @@ export class ProductDetailDto {
 
   @ApiProperty({ example: { ram_gb: 16, cpu: 'Intel Core Ultra 7 155H' } })
   specs!: Record<string, unknown>;
+
+  @ApiProperty({ example: true, description: 'Whether at least one unit is available.' })
+  inStock!: boolean;
+
+  @ApiProperty({
+    example: 7,
+    description: 'Available units, capped at 10 so the API never leaks exact stock.',
+  })
+  availableQuantity!: number;
 
   @ApiProperty({
     type: [ProductImageDto],

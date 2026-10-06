@@ -128,6 +128,7 @@ model Product {
   images      ProductImage[]
   prices      ProductPrice[]
   translations ProductTranslation[]
+  inventory   Inventory?
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -183,4 +184,24 @@ model ProductImage {
 
   @@index([productId, position])
   @@map("product_images")
+}
+
+/**
+ * Stock per product. `productId` is both PK and FK to `products(id)`.
+ * `stock` = physical units on hand; `reserved` = units held by open
+ * orders/carts. Available = `stock` - `reserved` (never negative: enforced
+ * by DB CHECKs `stock >= 0`, `reserved >= 0`, `reserved <= stock`, see the
+ * migration SQL — Prisma has no native CHECK support).
+ * Every mutation goes through `InventoryService` with conditional UPDATEs,
+ * so concurrent reservations can never oversell.
+ */
+model Inventory {
+  productId String   @id @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stock     Int      @default(0)
+  reserved  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("inventory")
 }

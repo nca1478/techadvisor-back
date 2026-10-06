@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { APP_CONFIG } from '../../config/app-config.module.js';
 import type { AppConfig } from '../../config/env.schema.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { InventoryService, toAvailability } from '../inventory/inventory.service.js';
 import type { CatalogQuery } from './catalog-query.schema.js';
 import {
   type CatalogBrandDto,
@@ -159,12 +160,14 @@ type CategoryRow = Prisma.CategoryGetPayload<{
 /**
  * Public read-only catalog. Thin orchestration over Prisma: every query is
  * scoped to `ACTIVE` products, prices resolve per ADR 0007 and texts per
- * ADR 0008. No stock is exposed here (arrives in P1.3).
+ * ADR 0008. Stock is never read directly here — availability comes from
+ * `InventoryService` as `inStock` + `availableQuantity` (capped at 10).
  */
 @Injectable()
 export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly inventory: InventoryService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -217,8 +220,12 @@ export class CatalogService {
       }),
     ]);
 
+    const availability = await this.inventory.getAvailabilityMap(rows.map((row) => row.id));
+
     return {
-      data: rows.map((row) => this.toListItem(row, locale, currency)),
+      data: rows.map((row) =>
+        this.toListItem(row, locale, currency, toAvailability(availability.get(row.id) ?? 0)),
+      ),
       meta: toPaginationMeta(query.page, query.limit, total),
     };
   }
@@ -250,8 +257,9 @@ export class CatalogService {
       // public API never reveals non-active products.
       throw new NotFoundException({ message: 'Product not found' });
     }
+    const available = await this.inventory.getAvailable(row.id);
     return {
-      ...this.toBaseFields(row, locale, currency),
+      ...this.toBaseFields(row, locale, currency, toAvailability(available)),
       images: row.images.map((image) => ({
         url: image.url,
         alt: image.alt,
@@ -312,10 +320,15 @@ export class CatalogService {
     };
   }
 
-  private toListItem(row: ProductListRow, locale: string, currency: string): ProductListItemDto {
+  private toListItem(
+    row: ProductListRow,
+    locale: string,
+    currency: string,
+    availability: { inStock: boolean; availableQuantity: number },
+  ): ProductListItemDto {
     const primary = row.images.length > 0 ? row.images[0] : null;
     return {
-      ...this.toBaseFields(row, locale, currency),
+      ...this.toBaseFields(row, locale, currency, availability),
       imageUrl: primary?.url ?? null,
       // When the image has no alt, clients fall back to the product name.
       imageAlt: primary?.alt ?? null,
@@ -326,6 +339,7 @@ export class CatalogService {
     row: ProductListRow,
     locale: string,
     currency: string,
+    availability: { inStock: boolean; availableQuantity: number },
   ): Omit<ProductListItemDto, 'imageUrl' | 'imageAlt'> {
     const price = resolvePrice(
       { amount: row.priceAmount, currency: row.currency },
@@ -353,6 +367,8 @@ export class CatalogService {
       priceAmount: price.amount,
       currency: price.currency,
       specs: (row.specs ?? {}) as Record<string, unknown>,
+      inStock: availability.inStock,
+      availableQuantity: availability.availableQuantity,
       locale,
       createdAt: row.createdAt,
     };
