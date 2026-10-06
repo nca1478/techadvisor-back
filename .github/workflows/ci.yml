@@ -1,0 +1,55 @@
+# Backend CI — lint + typecheck + tests + build against a pgvector Postgres.
+# No secrets: all values below are throwaway test values for the job only.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: techadvisor
+          POSTGRES_PASSWORD: techadvisor
+          POSTGRES_DB: techadvisor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U techadvisor -d techadvisor"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://techadvisor:techadvisor@localhost:5432/techadvisor?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-secret-at-least-16-chars
+      CORS_ORIGINS: http://localhost:3000
+      BASE_CURRENCY: USD
+      SUPPORTED_CURRENCIES: USD,EUR
+      DEFAULT_LOCALE: en
+      SUPPORTED_LOCALES: en,es
+      DOCS_ENABLED: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run build

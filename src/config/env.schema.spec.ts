@@ -9,6 +9,8 @@ const VALID_ENV: NodeJS.ProcessEnv = {
   BASE_CURRENCY: 'USD',
   SUPPORTED_CURRENCIES: 'USD,EUR',
   DEFAULT_LOCALE: 'en',
+  SUPPORTED_LOCALES: 'en,es',
+  DOCS_ENABLED: 'true',
 };
 
 describe('parseEnv', () => {
@@ -20,6 +22,8 @@ describe('parseEnv', () => {
     expect(config.BASE_CURRENCY).toBe('USD');
     expect(config.SUPPORTED_CURRENCIES).toEqual(['USD', 'EUR']);
     expect(config.DEFAULT_LOCALE).toBe('en');
+    expect(config.SUPPORTED_LOCALES).toEqual(['en', 'es']);
+    expect(config.DOCS_ENABLED).toBe(true);
   });
 
   it('normalizes the currency list (trims, uppercases, drops empties)', () => {
@@ -54,6 +58,19 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...VALID_ENV, BASE_CURRENCY: 'GBP' })).toThrow(
       /BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES/,
     );
+  });
+
+  it('fails when DEFAULT_LOCALE is not listed in SUPPORTED_LOCALES', () => {
+    expect(() => parseEnv({ ...VALID_ENV, DEFAULT_LOCALE: 'fr' })).toThrow(
+      /DEFAULT_LOCALE must be listed in SUPPORTED_LOCALES/,
+    );
+  });
+
+  it('parses DOCS_ENABLED as a boolean and defaults to true', () => {
+    expect(parseEnv({ ...VALID_ENV, DOCS_ENABLED: 'false' }).DOCS_ENABLED).toBe(false);
+    const withoutDocsFlag = { ...VALID_ENV };
+    delete withoutDocsFlag.DOCS_ENABLED;
+    expect(parseEnv(withoutDocsFlag).DOCS_ENABLED).toBe(true);
   });
 
   it('fails with a legible error when JWT_SECRET is too short', () => {

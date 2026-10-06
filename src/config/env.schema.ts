@@ -29,6 +29,25 @@ const supportedCurrenciesSchema = z.preprocess(
     .min(1, { error: 'must list at least one currency (e.g. USD,EUR)' }),
 );
 
+const supportedLocalesSchema = z.preprocess(
+  (value) =>
+    value === undefined || value === null
+      ? []
+      : typeof value === 'string'
+        ? value
+            .split(',')
+            .map((locale) => locale.trim())
+            .filter((locale) => locale.length > 0)
+        : value,
+  z
+    .array(
+      z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/, {
+        error: 'each entry must be a BCP 47 locale (e.g. en,es)',
+      }),
+    )
+    .min(1, { error: 'must list at least one locale (e.g. en,es)' }),
+);
+
 const envSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -52,10 +71,24 @@ const envSchema = z
       .min(2, { error: 'DEFAULT_LOCALE must be a valid locale (e.g. en, es)' })
       .max(10)
       .default('en'),
+    SUPPORTED_LOCALES: supportedLocalesSchema.default(['en', 'es']),
+    DOCS_ENABLED: z
+      .preprocess(
+        (value) =>
+          typeof value === 'string'
+            ? value.trim().toLowerCase() === 'true' || value.trim() === '1'
+            : value,
+        z.boolean(),
+      )
+      .default(true),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',
     path: ['BASE_CURRENCY'],
+  })
+  .refine((env) => env.SUPPORTED_LOCALES.includes(env.DEFAULT_LOCALE), {
+    error: 'DEFAULT_LOCALE must be listed in SUPPORTED_LOCALES',
+    path: ['DEFAULT_LOCALE'],
   });
 
 export type AppConfig = z.output<typeof envSchema>;
