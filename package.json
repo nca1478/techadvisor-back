@@ -7,11 +7,13 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
+    "prepare": "husky",
     "build": "nest build",
     "deploy": "nest deploy",
     "dev": "nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "lint": "oxlint --type-aware src/ test/",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -32,6 +34,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@nestjs/cli": "^12.0.0",
     "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
@@ -40,12 +43,17 @@
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "oxlint": "^1.58.0",
     "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "typescript": "^6.0.2",
+    "typescript-eslint": "^8.71.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.1.2"
   }
