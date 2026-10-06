@@ -63,6 +63,10 @@ const envSchema = z
     JWT_SECRET: z
       .string({ error: 'JWT_SECRET is required (generate a long random secret, never commit it)' })
       .min(16, { error: 'JWT_SECRET must be at least 16 characters long' }),
+    JWT_ACCESS_EXPIRES_IN_SEC: z.coerce.number().int().positive().default(900),
+    JWT_REFRESH_EXPIRES_IN_SEC: z.coerce.number().int().positive().default(2592000),
+    AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+    AUTH_RATE_LIMIT_TTL_MS: z.coerce.number().int().positive().default(60000),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     BASE_CURRENCY: isoCurrencyCode('BASE_CURRENCY'),
     SUPPORTED_CURRENCIES: supportedCurrenciesSchema,

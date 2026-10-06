@@ -4,9 +4,20 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { RequestLoggingMiddleware } from './common/logging/request-logging.middleware.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { PublicConfigModule } from './modules/public-config/public-config.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
+import { UsersModule } from './modules/users/users.module.js';
+import { AdminModule } from './modules/admin/admin.module.js';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, HealthModule, PublicConfigModule],
+  imports: [
+    AppConfigModule,
+    PrismaModule,
+    HealthModule,
+    PublicConfigModule,
+    AuthModule,
+    UsersModule,
+    AdminModule,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
