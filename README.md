@@ -37,11 +37,31 @@ npx prisma migrate dev   # apply pending migrations (creates the DB if needed)
 npx prisma generate      # regenerate the client (also runs on `npm ci` via `postinstall`)
 ```
 
+## Seed (development data only)
+
+Idempotent fixtures: 7 categories, 10 brands, 40 products (laptops + PC
+components with coherent specs), ES translations and two test users. Data
+lives in `prisma/seed-data/*.json` and is validated against the category
+Zod specs schemas on every run. Safe to run repeatedly — upserts on
+`slug`/`sku`/email converge instead of duplicating.
+
+```bash
+npm run seed             # refuses to run with NODE_ENV=production
+```
+
+Test users (local development only, never production):
+
+| Role     | Email                        | Password      |
+|----------|------------------------------|---------------|
+| ADMIN    | `admin@techadvisor.local`    | `Admin123!`   |
+| CUSTOMER | `customer@techadvisor.local` | `Customer123!` |
+
 ## Scripts
 
 | Script            | What it does                    |
 |-------------------|---------------------------------|
 | `npm run dev`     | start in watch mode (port 3001) |
+| `npm run seed`    | load idempotent dev/demo data   |
 | `npm run build`   | compile to `dist/`              |
 | `npm run lint`    | oxlint (type-aware)             |
 | `npm run typecheck` | `tsc --noEmit`                |
