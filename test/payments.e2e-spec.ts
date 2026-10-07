@@ -287,7 +287,13 @@ describe('Payments (e2e)', () => {
     expect(status).toBe(400);
     expect(await orderStatus(id, token)).toBe('PENDING_PAYMENT');
     expect(await inventory()).toEqual(before);
-    expect(await prisma.processedWebhookEvent.count()).toBe(0);
+    // justificado: aserción aislada por eventId; el conteo global es frágil
+    // ante eventos residuales de otras corridas/workers que comparten la BD.
+    expect(
+      await prisma.processedWebhookEvent.findUnique({
+        where: { eventId: `evt_e2e_pay_bad_${suffix}` },
+      }),
+    ).toBeNull();
   });
 
   it('moves the order to PAID on a verified checkout.session.completed', async () => {
