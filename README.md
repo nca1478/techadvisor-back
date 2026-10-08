@@ -61,24 +61,24 @@ npm run seed             # se niega a correr con NODE_ENV=production
 
 Usuarios de prueba (solo desarrollo local, nunca producción):
 
-| Rol      | Email                        | Contraseña    |
-|----------|------------------------------|---------------|
-| ADMIN    | `admin@techadvisor.local`    | `Admin123!`   |
+| Rol      | Email                        | Contraseña     |
+| -------- | ---------------------------- | -------------- |
+| ADMIN    | `admin@techadvisor.local`    | `Admin123!`    |
 | CUSTOMER | `customer@techadvisor.local` | `Customer123!` |
 
 ## Scripts
 
-| Script            | Qué hace                    |
-|-------------------|---------------------------------|
-| `npm run dev`     | arranca en modo watch (puerto 3001) |
-| `npm run seed`    | carga datos de desarrollo/demo   |
-| `npm run build`   | compila a `dist/`              |
-| `npm run worker:ingestion` | corre el worker de ingesta RAG (desde `dist/`, requiere `npm run build` antes) |
-| `npm run worker:reindex` | corre el worker de reindex de embeddings (desde `dist/`, requiere `npm run build` antes) |
-| `npm run lint`    | oxlint (con tipos)             |
-| `npm run typecheck` | `tsc --noEmit`                |
-| `npm test`        | tests unitarios (vitest)             |
-| `npm run test:e2e`| tests e2e de la API (vitest + supertest) |
+| Script                     | Qué hace                                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run dev`              | arranca en modo watch (puerto 3001)                                                      |
+| `npm run seed`             | carga datos de desarrollo/demo                                                           |
+| `npm run build`            | compila a `dist/`                                                                        |
+| `npm run worker:ingestion` | corre el worker de ingesta RAG (desde `dist/`, requiere `npm run build` antes)           |
+| `npm run worker:reindex`   | corre el worker de reindex de embeddings (desde `dist/`, requiere `npm run build` antes) |
+| `npm run lint`             | oxlint (con tipos)                                                                       |
+| `npm run typecheck`        | `tsc --noEmit`                                                                           |
+| `npm test`                 | tests unitarios (vitest)                                                                 |
+| `npm run test:e2e`         | tests e2e de la API (vitest + supertest)                                                 |
 
 ## Worker de ingesta (RAG)
 
@@ -130,9 +130,9 @@ responde `503`.
 ```bash
 # Test end-to-end local con el Stripe CLI (requiere claves test en .env):
 stripe login
-stripe listen --forward-to localhost:3001/api/v1/payments/webhook
-# En otra terminal, dispara un pago de prueba para una checkout session:
-stripe checkout sessions create --help
+stripe listen --all-snapshot --forward-to localhost:3001/api/v1/payments/webhook
+# En otra terminal, para activar eventos con CLI
+stripe trigger payment_intent.succeeded
 ```
 
 ## Estructura
