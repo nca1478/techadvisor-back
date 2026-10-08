@@ -409,6 +409,13 @@ model Document {
   /** BCP 47 locale of the document content (e.g. `es`, `en`). */
   locale      String
   sourceUrl   String?        @map("source_url") @db.VarChar(2048)
+  /**
+   * Provenance of the document: `manual` for admin-registered sources,
+   * `auto:product` for the SPEC_SHEET generated from a product row (see ADR
+   * 0019). Combined with `productId` in a unique constraint so each product
+   * owns at most one auto-generated document.
+   */
+  source      String         @default("manual")
   /** Hash of the extracted source text; re-ingest skips when unchanged. */
   contentHash String         @map("content_hash")
   status      DocumentStatus @default(PENDING)
@@ -418,6 +425,7 @@ model Document {
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
+  @@unique([productId, source])
   @@index([productId])
   @@index([categoryId])
   @@index([status])

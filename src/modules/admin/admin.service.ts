@@ -13,6 +13,7 @@ import type { OrderStatus, Prisma } from '../../generated/prisma/client.js';
 import { Prisma as PrismaNamespace } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { parseSpecs } from '../catalog/specs/index.js';
+import { ProductSpecSheetService } from '../ingestion/product-spec-sheet.service.js';
 import { OrderNotFoundException } from '../orders/orders.errors.js';
 import { OrdersService } from '../orders/orders.service.js';
 import type {
@@ -72,6 +73,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
+    private readonly specSheets: ProductSpecSheetService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -194,6 +196,9 @@ export class AdminService {
         }
         return product;
       });
+      // Fire-and-forget SPEC_SHEET auto-ingest (never throws; a queue outage
+      // leaves the document PENDING for a later sync — see ADR 0019).
+      void this.specSheets.syncProduct(created.id);
       return this.toAdminProduct(created);
     } catch (error) {
       throw this.toUniqueConflict(error, 'sku or slug');
@@ -289,6 +294,7 @@ export class AdminService {
           },
         });
       });
+      void this.specSheets.syncProduct(updated.id);
       return this.toAdminProduct(updated);
     } catch (error) {
       throw this.toUniqueConflict(error, 'sku or slug');
@@ -309,6 +315,8 @@ export class AdminService {
         inventory: true,
       },
     });
+    // Archival removes the auto SPEC_SHEET; (re)activation regenerates it.
+    void this.specSheets.syncProduct(updated.id);
     return this.toAdminProduct(updated);
   }
 

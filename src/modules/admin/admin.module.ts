@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthSecurityModule } from '../auth/auth-security.module.js';
+import { IngestionModule } from '../ingestion/ingestion.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
@@ -12,7 +13,7 @@ import { AdminService } from './admin.service.js';
  * `InventoryMovement` audit row in the same transaction.
  */
 @Module({
-  imports: [AuthSecurityModule, OrdersModule],
+  imports: [AuthSecurityModule, OrdersModule, IngestionModule],
   controllers: [AdminController],
   providers: [AdminService],
 })

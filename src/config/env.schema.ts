@@ -170,6 +170,12 @@ const envSchema = z
     EMBEDDING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
     EMBEDDING_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60000).default(500),
     EMBEDDING_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(300000).default(8000),
+    // Ingestion queue (BullMQ, see ADR 0019). Attempts bound the retries of
+    // one job with exponential backoff starting at INGESTION_BACKOFF_MS;
+    // INGESTION_CONCURRENCY sizes the standalone worker only.
+    INGESTION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
+    INGESTION_BACKOFF_MS: z.coerce.number().int().min(100).max(300000).default(5000),
+    INGESTION_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',

@@ -13,6 +13,7 @@ import { CartModule } from './modules/cart/cart.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
+import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AiModule } from './modules/ai/ai.module.js';
     OrdersModule,
     PaymentsModule,
     AiModule,
+    IngestionModule,
   ],
 })
 export class AppModule implements NestModule {

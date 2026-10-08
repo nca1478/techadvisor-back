@@ -63,10 +63,26 @@ Test users (local development only, never production):
 | `npm run dev`     | start in watch mode (port 3001) |
 | `npm run seed`    | load idempotent dev/demo data   |
 | `npm run build`   | compile to `dist/`              |
+| `npm run worker:ingestion` | run the RAG ingestion worker (from `dist/`, needs `npm run build` first) |
 | `npm run lint`    | oxlint (type-aware)             |
 | `npm run typecheck` | `tsc --noEmit`                |
 | `npm test`        | unit tests (vitest)             |
 | `npm run test:e2e`| API e2e tests (vitest + supertest) |
+
+## Ingestion worker (RAG)
+
+Documents become chunks with embeddings through the `ingestion` BullMQ queue
+(see ADR `0019`): the API only enqueues, and this separate process consumes:
+
+```bash
+npm run build && npm run worker:ingestion
+```
+
+Every ACTIVE product owns one auto-generated SPEC_SHEET document
+(`source = 'auto:product'`), re-synced on product writes. Re-ingesting
+unchanged content is a no-op (same `content_hash` → skip, no provider call).
+Failures leave the document `FAILED` with a legible error and BullMQ backs
+off between attempts (`INGESTION_MAX_ATTEMPTS`, `INGESTION_BACKOFF_MS`).
 
 ## Payments (Stripe, test mode only)
 
