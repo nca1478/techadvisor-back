@@ -22,13 +22,13 @@ export class AdminDocumentDto {
   @ApiProperty({ example: 'en' })
   locale!: string;
 
-  @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6', nullable: true })
+  @ApiProperty({ type: String, nullable: true, example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   productId!: string | null;
 
-  @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6', nullable: true })
+  @ApiProperty({ type: String, nullable: true, example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   categoryId!: string | null;
 
-  @ApiProperty({ example: 'https://example.com/manual.pdf', nullable: true })
+  @ApiProperty({ type: String, nullable: true, example: 'https://example.com/manual.pdf' })
   sourceUrl!: string | null;
 
   @ApiProperty({ example: 'manual' })
@@ -37,16 +37,16 @@ export class AdminDocumentDto {
   @ApiProperty({ example: 'PENDING', enum: ['PENDING', 'PROCESSING', 'READY', 'FAILED'] })
   status!: string;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiProperty({ type: String, nullable: true, example: null })
   error!: string | null;
 
-  @ApiProperty({ example: 'manual.pdf', nullable: true })
+  @ApiProperty({ type: String, nullable: true, example: 'manual.pdf' })
   fileName!: string | null;
 
-  @ApiProperty({ example: 'application/pdf', nullable: true })
+  @ApiProperty({ type: String, nullable: true, example: 'application/pdf' })
   mimeType!: string | null;
 
-  @ApiProperty({ example: 48213, nullable: true })
+  @ApiProperty({ type: Number, nullable: true, example: 48213 })
   sizeBytes!: number | null;
 
   @ApiProperty({ example: 12, description: 'Chunks stored for this document.' })
