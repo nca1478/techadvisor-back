@@ -6,7 +6,11 @@ import {
   type EmbeddingProvider,
 } from '../ai/interfaces/embedding-provider.interface.js';
 import { fuseRankings } from './reciprocal-rank-fusion.js';
-import { retrievalSearchSchema, type RetrievalSearchInput } from './retrieval.schemas.js';
+import {
+  retrievalSearchSchema,
+  type RetrievalSearch,
+  type RetrievalSearchInput,
+} from './retrieval.schemas.js';
 import { hasSkuPattern } from './sku-pattern.js';
 
 /** Full-text configuration implied by a BCP 47 locale (mirrors SQL `rag_regconfig`). */
@@ -70,14 +74,7 @@ export class RetrievalService {
   ) {}
 
   async search(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
-    const parsed = retrievalSearchSchema.safeParse(input);
-    if (!parsed.success) {
-      const issues = parsed.error.issues.map(
-        (issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`,
-      );
-      throw new BadRequestException({ message: issues.join('; '), details: issues });
-    }
-    const { query, filters, locale, topN, candidateK, rrfK } = parsed.data;
+    const { query, filters, locale, topN, candidateK, rrfK } = this.parseInput(input);
 
     const vectors = await this.embeddings.embed([query], { kind: 'query' });
     const queryVector = vectors.at(0);
@@ -128,6 +125,63 @@ export class RetrievalService {
         source: { title: row.title, docType: row.docType, sourceUrl: row.sourceUrl },
       };
     });
+  }
+
+  /**
+   * Full-text-only search over the same corpus and hard filters, without
+   * touching the embedding provider. Used as the degraded fallback when the
+   * provider fails (see the `search` module): ranking comes from the
+   * `ts_rank` order of each linguistic branch, scored on the same RRF scale
+   * (`1 / (rrfK + rank)`) so scores stay comparable with hybrid results.
+   */
+  async searchFulltextOnly(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
+    const { query, filters, locale, topN, candidateK, rrfK } = this.parseInput(input);
+
+    const conditions = this.buildFilterConditions(filters, this.embeddings.model);
+    const rows = await this.fulltextCandidates(
+      query,
+      filters.locales ?? [],
+      locale,
+      conditions,
+      candidateK,
+    );
+    const byId = new Map<string, CandidateRow>();
+    for (const row of rows) {
+      byId.set(row.chunkId, row);
+    }
+    const fused = fuseRankings([rows.map((row) => row.chunkId)], { k: rrfK });
+
+    // Never log the query text: it may contain personal data.
+    this.logger.debug(
+      `retrieval(fulltext-only): candidates=${String(rows.length)} topN=${String(topN)}`,
+    );
+
+    return fused.slice(0, topN).map((entry) => {
+      const row = byId.get(entry.id);
+      if (row === undefined) {
+        throw new RetrievalError(`Fused chunk ${entry.id} has no candidate row`);
+      }
+      return {
+        chunkId: row.chunkId,
+        documentId: row.documentId,
+        productId: row.productId,
+        content: row.content,
+        locale: row.locale,
+        score: entry.score,
+        source: { title: row.title, docType: row.docType, sourceUrl: row.sourceUrl },
+      };
+    });
+  }
+
+  private parseInput(input: RetrievalSearchInput): RetrievalSearch {
+    const parsed = retrievalSearchSchema.safeParse(input);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map(
+        (issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`,
+      );
+      throw new BadRequestException({ message: issues.join('; '), details: issues });
+    }
+    return parsed.data;
   }
 
   /**

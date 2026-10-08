@@ -15,6 +15,7 @@ import { PaymentsModule } from './modules/payments/payments.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 import { RetrievalModule } from './modules/retrieval/retrieval.module.js';
+import { SearchModule } from './modules/search/search.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { RetrievalModule } from './modules/retrieval/retrieval.module.js';
     AiModule,
     IngestionModule,
     RetrievalModule,
+    SearchModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -19,6 +19,14 @@ import { AuthService } from './auth.service.js';
           ttl: config.AUTH_RATE_LIMIT_TTL_MS,
           limit: config.AUTH_RATE_LIMIT_MAX,
         },
+        // Named throttler consumed by the public search endpoint (which
+        // skips the `auth` throttler). Registered here because there is a
+        // single ThrottlerModule.forRoot in the app (see ADR 0022).
+        {
+          name: 'search',
+          ttl: config.SEARCH_RATE_LIMIT_TTL_MS,
+          limit: config.SEARCH_RATE_LIMIT_MAX,
+        },
       ],
     }),
   ],

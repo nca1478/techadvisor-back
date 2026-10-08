@@ -122,6 +122,10 @@ const envSchema = z
     JWT_REFRESH_EXPIRES_IN_SEC: z.coerce.number().int().positive().default(2592000),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
     AUTH_RATE_LIMIT_TTL_MS: z.coerce.number().int().positive().default(60000),
+    // Public semantic search: looser than auth (read-only, but every hit
+    // costs an embedding call + hybrid SQL, see ADR 0022).
+    SEARCH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
+    SEARCH_RATE_LIMIT_TTL_MS: z.coerce.number().int().positive().default(60000),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     BASE_CURRENCY: isoCurrencyCode('BASE_CURRENCY'),
     SUPPORTED_CURRENCIES: supportedCurrenciesSchema,
