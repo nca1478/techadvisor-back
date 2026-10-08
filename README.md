@@ -1,138 +1,142 @@
 # TechAdvisor — Backend
 
-NestJS API for the TechAdvisor tech ecommerce (B2C) with a RAG shopping advisor.
-Listens on port **3001** with global prefix **`/api/v1`**.
+API NestJS para el ecommerce B2C de tecnología TechAdvisor con asesor de compras RAG.
+Escucha en el puerto **3001** con prefijo global **`/api/v1`**.
 
-> Source of truth: [`../AGENTS.md`](../AGENTS.md).
+> Fuente de verdad: [`../AGENTS.md`](../AGENTS.md).
 
-## Run
+## Ejecución
 
 ```bash
 npm ci
-npm run dev      # watch mode on http://localhost:3001
+npm run dev      # modo watch en http://localhost:3001
 ```
 
-> Uploading RAG documents (admin panel) needs the ingestion worker too —
-> the API only enqueues, a separate process consumes the queue (see
-> [Ingestion worker](#ingestion-worker-rag)). Without it, documents stay
-> `PENDING` forever. Second terminal:
+> Subir documentos RAG (panel admin) también requiere el worker de ingesta:
+> la API solo encola y un proceso aparte consume la cola (ver
+> [Worker de ingesta](#worker-de-ingesta-rag)). Sin él, los documentos se
+> quedan en `PENDING` para siempre. Segunda terminal:
 >
 > ```bash
 > npm run build && npm run worker:ingestion
 > ```
 
-## Infrastructure (PostgreSQL + pgvector, Redis)
+## Infraestructura (PostgreSQL + pgvector, Redis)
 
-Local infrastructure runs via Docker Compose from this folder (`backend/`).
-The API and web run with `npm run dev` — no Dockerfiles.
-
-```bash
-cp .env.example .env          # once: create your local env file (never commit .env)
-docker compose up -d          # start postgres (5432) + redis (6379)
-docker compose ps             # both services should show "healthy"
-docker compose down           # stop the infrastructure (keeps data volumes)
-docker compose down -v        # stop AND delete data volumes (fresh start)
-```
-
-> If host port `5432` is already taken on your machine (e.g. a native
-> PostgreSQL), create a gitignored `docker-compose.override.yml` remapping it
-> (e.g. `"5433:5432"` for `postgres`) and point your local `.env`
-> `DATABASE_URL` at that port. See ADR `0003`.
-
-## Database (Prisma)
+La infraestructura local corre con Docker Compose desde esta carpeta (`backend/`).
+La API y la web corren con `npm run dev` — sin Dockerfiles.
 
 ```bash
-npx prisma migrate dev   # apply pending migrations (creates the DB if needed)
-npx prisma generate      # regenerate the client (also runs on `npm ci` via `postinstall`)
+cp .env.example .env          # una vez: crea tu env local (nunca commitees .env)
+docker compose up -d          # arranca postgres (5432) + redis (6379)
+docker compose ps             # ambos servicios deben salir "healthy"
+docker compose down           # detiene la infraestructura (conserva los volúmenes)
+docker compose down -v        # detiene Y borra los volúmenes (arranque limpio)
 ```
 
-## Seed (development data only)
+> Si el puerto `5432` del host ya está ocupado en tu máquina (p. ej. un
+> PostgreSQL nativo), crea un `docker-compose.override.yml` gitignored que lo
+> remapee (p. ej. `"5433:5432"` para `postgres`) y apunta el `DATABASE_URL` de
+> tu `.env` local a ese puerto. Ver ADR `0003`.
 
-Idempotent fixtures: 7 categories, 10 brands, 40 products (laptops + PC
-components with coherent specs), ES translations and two test users. Data
-lives in `prisma/seed-data/*.json` and is validated against the category
-Zod specs schemas on every run. Safe to run repeatedly — upserts on
-`slug`/`sku`/email converge instead of duplicating.
+## Base de datos (Prisma)
 
 ```bash
-npm run seed             # refuses to run with NODE_ENV=production
+npx prisma migrate dev   # aplica migraciones pendientes (crea la BD si falta)
+npx prisma generate      # regenera el cliente (también corre en `npm ci` vía `postinstall`)
 ```
 
-Test users (local development only, never production):
+## Seed (solo datos de desarrollo)
 
-| Role     | Email                        | Password      |
+Fixtures idempotentes: 7 categorías, 10 marcas, 40 productos (portátiles +
+componentes de PC con specs coherentes), traducciones ES y dos usuarios de
+prueba. Los datos viven en `prisma/seed-data/*.json` y se validan contra los
+esquemas Zod de specs por categoría en cada ejecución. Se puede correr
+repetidamente sin riesgo — los upserts por `slug`/`sku`/email convergen en vez
+de duplicar.
+
+```bash
+npm run seed             # se niega a correr con NODE_ENV=production
+```
+
+Usuarios de prueba (solo desarrollo local, nunca producción):
+
+| Rol      | Email                        | Contraseña    |
 |----------|------------------------------|---------------|
 | ADMIN    | `admin@techadvisor.local`    | `Admin123!`   |
 | CUSTOMER | `customer@techadvisor.local` | `Customer123!` |
 
 ## Scripts
 
-| Script            | What it does                    |
+| Script            | Qué hace                    |
 |-------------------|---------------------------------|
-| `npm run dev`     | start in watch mode (port 3001) |
-| `npm run seed`    | load idempotent dev/demo data   |
-| `npm run build`   | compile to `dist/`              |
-| `npm run worker:ingestion` | run the RAG ingestion worker (from `dist/`, needs `npm run build` first) |
-| `npm run worker:reindex` | run the embedding reindex worker (from `dist/`, needs `npm run build` first) |
-| `npm run lint`    | oxlint (type-aware)             |
+| `npm run dev`     | arranca en modo watch (puerto 3001) |
+| `npm run seed`    | carga datos de desarrollo/demo   |
+| `npm run build`   | compila a `dist/`              |
+| `npm run worker:ingestion` | corre el worker de ingesta RAG (desde `dist/`, requiere `npm run build` antes) |
+| `npm run worker:reindex` | corre el worker de reindex de embeddings (desde `dist/`, requiere `npm run build` antes) |
+| `npm run lint`    | oxlint (con tipos)             |
 | `npm run typecheck` | `tsc --noEmit`                |
-| `npm test`        | unit tests (vitest)             |
-| `npm run test:e2e`| API e2e tests (vitest + supertest) |
+| `npm test`        | tests unitarios (vitest)             |
+| `npm run test:e2e`| tests e2e de la API (vitest + supertest) |
 
-## Ingestion worker (RAG)
+## Worker de ingesta (RAG)
 
-Documents become chunks with embeddings through the `ingestion` BullMQ queue
-(see ADR `0019`): the API only enqueues, and this separate process consumes:
+Los documentos se convierten en chunks con embeddings a través de la cola
+BullMQ `ingestion` (ver ADR `0019`): la API solo encola y este proceso aparte
+consume:
 
 ```bash
 npm run build && npm run worker:ingestion
 ```
 
-Every ACTIVE product owns one auto-generated SPEC_SHEET document
-(`source = 'auto:product'`), re-synced on product writes. Re-ingesting
-unchanged content is a no-op (same `content_hash` → skip, no provider call).
-Failures leave the document `FAILED` with a legible error and BullMQ backs
-off between attempts (`INGESTION_MAX_ATTEMPTS`, `INGESTION_BACKOFF_MS`).
+Cada producto ACTIVE tiene un documento SPEC_SHEET autogenerado
+(`source = 'auto:product'`), re-sincronizado al escribir productos. Reingestar
+contenido sin cambios es un no-op (mismo `content_hash` → skip, sin llamar al
+proveedor). Los fallos dejan el documento en `FAILED` con un error legible y
+BullMQ espera con backoff entre intentos (`INGESTION_MAX_ATTEMPTS`,
+`INGESTION_BACKOFF_MS`).
 
-## Embedding reindex (model switch, zero downtime)
+## Reindex de embeddings (cambio de modelo, cero downtime)
 
-Switching embedding models never rewrites the live column in place (see
-ADR `0023` for the full runbook and rollback):
+Cambiar de modelo de embeddings nunca reescribe la columna viva en el sitio
+(ver ADR `0023` para el runbook completo y el rollback):
 
 ```bash
 npm run build && npm run worker:reindex
 ```
 
-1. Point `EMBEDDING_MODEL` / `EMBEDDING_DIM` at the NEW model and restart.
-2. `POST /api/v1/admin/reindex` — snapshots every chunk and enqueues one
-   `reindex` queue job per batch; search keeps serving the ACTIVE model.
-3. Poll `GET /api/v1/admin/reindex/jobs/:id` until `activatable` is true
-   (`resume` re-enqueues whatever is still missing vectors).
-4. `POST /api/v1/admin/reindex/jobs/:id/activate` — flips retrieval to the
-   new model only at 100% with zero failures. The old column is kept.
+1. Apunta `EMBEDDING_MODEL` / `EMBEDDING_DIM` al modelo NUEVO y reinicia.
+2. `POST /api/v1/admin/reindex` — snapshot de cada chunk y encola un job de
+   la cola `reindex` por lote; la búsqueda sigue sirviendo el modelo ACTIVO.
+3. Consulta `GET /api/v1/admin/reindex/jobs/:id` hasta que `activatable` sea
+   true (`resume` re-encola lo que siga sin vectores).
+4. `POST /api/v1/admin/reindex/jobs/:id/activate` — cambia retrieval al
+   modelo nuevo solo al 100% sin fallos. La columna vieja se conserva.
 
-## Payments (Stripe, test mode only)
+## Pagos (Stripe, solo modo test)
 
-Checkouts run behind the `PaymentProvider` interface (see ADR `0012`):
-`POST /api/v1/payments/checkout { orderId }` creates a Stripe-hosted
-Checkout Session from the server-side order total and returns its URL.
-The Stripe webhook is the **only** source of truth for payment state —
-`POST /api/v1/payments/webhook` verifies the `stripe-signature` header over
-the raw body and moves the order to `PAID` (or `CANCELLED` on
-failure/expiry). The frontend `success_url` redirect never changes order
-state. Only test keys are accepted (`sk_test_...` / `pk_test_...`; live keys
-fail boot). Without keys, `/payments/*` returns `503`.
+Los checkouts corren detrás de la interfaz `PaymentProvider` (ver ADR `0012`):
+`POST /api/v1/payments/checkout { orderId }` crea una Checkout Session
+alojada en Stripe desde el total del pedido en servidor y devuelve su URL.
+El webhook de Stripe es la **única** fuente de verdad del estado del pago:
+`POST /api/v1/payments/webhook` verifica la cabecera `stripe-signature` sobre
+el cuerpo crudo y mueve la orden a `PAID` (o a `CANCELLED` si el pago
+falla/expira). La redirección `success_url` del frontend nunca cambia el
+estado de la orden. Solo se aceptan claves de test (`sk_test_...` /
+`pk_test_...`; las live tumban el arranque). Sin claves, `/payments/*`
+responde `503`.
 
 ```bash
-# Local end-to-end test with the Stripe CLI (needs test-mode keys in .env):
+# Test end-to-end local con el Stripe CLI (requiere claves test en .env):
 stripe login
 stripe listen --forward-to localhost:3001/api/v1/payments/webhook
-# In another terminal, trigger a test payment for a checkout session:
+# En otra terminal, dispara un pago de prueba para una checkout session:
 stripe checkout sessions create --help
 ```
 
-## Layout
+## Estructura
 
-- `src/modules/` — feature modules (catalog, orders, …)
-- `src/common/` — filters, guards, interceptors, utils
-- `src/config/` — env-validated configuration
+- `src/modules/` — módulos de funcionalidad (catalog, orders, …)
+- `src/common/` — filtros, guards, interceptors, utils
+- `src/config/` — configuración validada por env
