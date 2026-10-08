@@ -28,16 +28,11 @@ La API y la web corren con `npm run dev` — sin Dockerfiles.
 
 ```bash
 cp .env.example .env          # una vez: crea tu env local (nunca commitees .env)
-docker compose up -d          # arranca postgres (5432) + redis (6379)
+docker compose up -d          # arranca postgres (5433) + redis (6379)
 docker compose ps             # ambos servicios deben salir "healthy"
 docker compose down           # detiene la infraestructura (conserva los volúmenes)
 docker compose down -v        # detiene Y borra los volúmenes (arranque limpio)
 ```
-
-> Si el puerto `5432` del host ya está ocupado en tu máquina (p. ej. un
-> PostgreSQL nativo), crea un `docker-compose.override.yml` gitignored que lo
-> remapee (p. ej. `"5433:5432"` para `postgres`) y apunta el `DATABASE_URL` de
-> tu `.env` local a ese puerto. Ver ADR `0003`.
 
 ## Base de datos (Prisma)
 

@@ -15,9 +15,6 @@ coverage/
 .env
 .env.*.local
 
-# local-only compose overrides (e.g. host port remaps, see ADR 0003)
-docker-compose.override.yml
-
 # logs
 *.log
 
