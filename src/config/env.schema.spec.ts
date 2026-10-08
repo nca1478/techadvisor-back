@@ -137,4 +137,78 @@ describe('parseEnv', () => {
       /STRIPE_WEBHOOK_SECRET/,
     );
   });
+
+  it('defaults to the fake embedding provider with tunable batching/retry knobs', () => {
+    const config = parseEnv({ ...VALID_ENV });
+
+    expect(config.EMBEDDING_PROVIDER).toBe('fake');
+    expect(config.EMBEDDING_MODEL).toBeUndefined();
+    expect(config.EMBEDDING_API_KEY).toBeUndefined();
+    expect(config.EMBEDDING_BASE_URL).toBeUndefined();
+    expect(config.EMBEDDING_DIM).toBe(1536);
+    expect(config.EMBEDDING_BATCH_SIZE).toBe(100);
+    expect(config.EMBEDDING_TIMEOUT_MS).toBe(30000);
+    expect(config.EMBEDDING_MAX_ATTEMPTS).toBe(4);
+    expect(config.EMBEDDING_RETRY_BASE_DELAY_MS).toBe(500);
+    expect(config.EMBEDDING_RETRY_MAX_DELAY_MS).toBe(8000);
+  });
+
+  it('accepts an openai-compatible embedding configuration', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      EMBEDDING_PROVIDER: 'openai-compatible',
+      EMBEDDING_MODEL: 'text-embedding-3-small',
+      EMBEDDING_API_KEY: 'sk-test',
+      EMBEDDING_BASE_URL: 'https://api.openai.com/v1',
+      EMBEDDING_DIM: '768',
+    });
+
+    expect(config.EMBEDDING_PROVIDER).toBe('openai-compatible');
+    expect(config.EMBEDDING_MODEL).toBe('text-embedding-3-small');
+    expect(config.EMBEDDING_BASE_URL).toBe('https://api.openai.com/v1');
+    expect(config.EMBEDDING_DIM).toBe(768);
+  });
+
+  it('treats empty embedding key/url/model as unset', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      EMBEDDING_MODEL: '',
+      EMBEDDING_API_KEY: '   ',
+      EMBEDDING_BASE_URL: '',
+    });
+
+    expect(config.EMBEDDING_MODEL).toBeUndefined();
+    expect(config.EMBEDDING_API_KEY).toBeUndefined();
+    expect(config.EMBEDDING_BASE_URL).toBeUndefined();
+  });
+
+  it('requires base url and model for openai-compatible', () => {
+    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_PROVIDER: 'openai-compatible' })).toThrow(
+      /EMBEDDING_BASE_URL and EMBEDDING_MODEL are required/,
+    );
+    expect(() =>
+      parseEnv({
+        ...VALID_ENV,
+        EMBEDDING_PROVIDER: 'openai-compatible',
+        EMBEDDING_BASE_URL: 'https://api.openai.com/v1',
+      }),
+    ).toThrow(/EMBEDDING_BASE_URL and EMBEDDING_MODEL are required/);
+  });
+
+  it('rejects unknown providers, bad urls and out-of-range dimensions', () => {
+    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_PROVIDER: 'mystery' })).toThrow(
+      /EMBEDDING_PROVIDER/,
+    );
+    expect(() =>
+      parseEnv({
+        ...VALID_ENV,
+        EMBEDDING_PROVIDER: 'openai-compatible',
+        EMBEDDING_MODEL: 'm',
+        EMBEDDING_BASE_URL: 'not-a-url',
+      }),
+    ).toThrow(/EMBEDDING_BASE_URL/);
+    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_DIM: '0' })).toThrow(/EMBEDDING_DIM/);
+    // pgvector indexed-vector cap (AGENTS.md §7): larger outputs need reduction first.
+    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_DIM: '3072' })).toThrow(/EMBEDDING_DIM/);
+  });
 });

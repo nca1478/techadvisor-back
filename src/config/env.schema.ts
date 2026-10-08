@@ -83,6 +83,26 @@ const stripeWebhookSecretSchema = z.preprocess(
     .optional(),
 );
 
+const embeddingBaseUrlSchema = z.preprocess(
+  emptyToUndefined,
+  z
+    .url({ error: 'EMBEDDING_BASE_URL must be a valid URL (e.g. https://api.openai.com/v1)' })
+    .refine((url) => url.startsWith('http://') || url.startsWith('https://'), {
+      error: 'EMBEDDING_BASE_URL must use the http:// or https:// scheme',
+    })
+    .optional(),
+);
+
+const embeddingModelSchema = z.preprocess(
+  emptyToUndefined,
+  z.string().min(1, { error: 'EMBEDDING_MODEL must be a non-empty model id' }).optional(),
+);
+
+const embeddingApiKeySchema = z.preprocess(
+  emptyToUndefined,
+  z.string().min(1, { error: 'EMBEDDING_API_KEY must be a non-empty key' }).optional(),
+);
+
 const envSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -132,6 +152,22 @@ const envSchema = z
     STRIPE_SECRET_KEY: stripeSecretKeySchema,
     STRIPE_PUBLISHABLE_KEY: stripePublishableKeySchema,
     STRIPE_WEBHOOK_SECRET: stripeWebhookSecretSchema,
+    EMBEDDING_PROVIDER: z
+      .enum(['fake', 'openai-compatible'], {
+        error: 'EMBEDDING_PROVIDER must be one of: fake, openai-compatible',
+      })
+      .default('fake'),
+    EMBEDDING_MODEL: embeddingModelSchema,
+    EMBEDDING_API_KEY: embeddingApiKeySchema,
+    EMBEDDING_BASE_URL: embeddingBaseUrlSchema,
+    // pgvector caps indexed `vector(N)` at 2.000 dimensions (AGENTS.md §7):
+    // larger provider outputs must use server-side reduction first.
+    EMBEDDING_DIM: z.coerce.number().int().min(1).max(2000).default(1536),
+    EMBEDDING_BATCH_SIZE: z.coerce.number().int().min(1).max(2048).default(100),
+    EMBEDDING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300000).default(30000),
+    EMBEDDING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
+    EMBEDDING_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60000).default(500),
+    EMBEDDING_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(300000).default(8000),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',
@@ -140,7 +176,17 @@ const envSchema = z
   .refine((env) => env.SUPPORTED_LOCALES.includes(env.DEFAULT_LOCALE), {
     error: 'DEFAULT_LOCALE must be listed in SUPPORTED_LOCALES',
     path: ['DEFAULT_LOCALE'],
-  });
+  })
+  .refine(
+    (env) =>
+      env.EMBEDDING_PROVIDER !== 'openai-compatible' ||
+      (env.EMBEDDING_BASE_URL !== undefined && env.EMBEDDING_MODEL !== undefined),
+    {
+      error:
+        'EMBEDDING_BASE_URL and EMBEDDING_MODEL are required when EMBEDDING_PROVIDER is openai-compatible',
+      path: ['EMBEDDING_BASE_URL'],
+    },
+  );
 
 export type AppConfig = z.output<typeof envSchema>;
 
