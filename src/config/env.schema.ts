@@ -176,6 +176,17 @@ const envSchema = z
     INGESTION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
     INGESTION_BACKOFF_MS: z.coerce.number().int().min(100).max(300000).default(5000),
     INGESTION_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
+    // Admin document uploads (local disk, see ADR 0020). The max is capped
+    // at 10 MiB because document bytes travel inside the BullMQ job payload
+    // (`MAX_JOB_BYTES` in ingestion.constants.ts) — a larger file could
+    // never be queued, so it is rejected at the edge instead.
+    DOCUMENTS_DIR: z.string().min(1).default('./storage/documents'),
+    DOCUMENTS_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(10 * 1024 * 1024)
+      .default(10 * 1024 * 1024),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',

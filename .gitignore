@@ -21,5 +21,8 @@ docker-compose.override.yml
 # logs
 *.log
 
+# admin-uploaded RAG source files (local disk storage, see ADR 0020)
+storage/
+
 # editor / OS
 .DS_Store

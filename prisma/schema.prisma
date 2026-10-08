@@ -421,6 +421,18 @@ model Document {
   status      DocumentStatus @default(PENDING)
   /** Failure detail when `status` is FAILED; NULL otherwise. */
   error       String?
+  /**
+   * Admin upload metadata (see ADR 0020). `storageKey` is the internal
+   * on-disk filename (the document UUID — never user input, never exposed
+   * via the API); `fileName` is the original client name kept for display.
+   * URL-registered documents carry `sourceUrl` and a fetched copy on disk.
+   */
+  fileName    String?   @map("file_name") @db.VarChar(255)
+  mimeType    String?   @map("mime_type") @db.VarChar(127)
+  sizeBytes   Int?      @map("size_bytes")
+  storageKey  String?   @map("storage_key") @db.VarChar(255)
+  /** Soft delete: set when an admin removes the document (chunks deleted). */
+  deletedAt   DateTime? @map("deleted_at")
   chunks      Chunk[]
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
@@ -430,6 +442,7 @@ model Document {
   @@index([categoryId])
   @@index([status])
   @@index([locale])
+  @@index([deletedAt])
   @@map("documents")
 }
 
