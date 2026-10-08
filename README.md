@@ -12,6 +12,15 @@ npm ci
 npm run dev      # watch mode on http://localhost:3001
 ```
 
+> Uploading RAG documents (admin panel) needs the ingestion worker too —
+> the API only enqueues, a separate process consumes the queue (see
+> [Ingestion worker](#ingestion-worker-rag)). Without it, documents stay
+> `PENDING` forever. Second terminal:
+>
+> ```bash
+> npm run build && npm run worker:ingestion
+> ```
+
 ## Infrastructure (PostgreSQL + pgvector, Redis)
 
 Local infrastructure runs via Docker Compose from this folder (`backend/`).
