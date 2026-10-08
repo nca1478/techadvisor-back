@@ -7,6 +7,7 @@ import { APP_CONFIG } from '../src/config/app-config.module.js';
 import { AiProviderError } from '../src/modules/ai/ai-provider.error.js';
 import { FakeEmbeddingAdapter } from '../src/modules/ai/adapters/fake-embedding.adapter.js';
 import { EMBEDDING_PROVIDER } from '../src/modules/ai/interfaces/embedding-provider.interface.js';
+import { EmbeddingStateService } from '../src/modules/reindex/embedding-state.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTestApp } from './test-app.js';
 
@@ -62,7 +63,23 @@ describe('Search endpoint (e2e)', () => {
 
   beforeAll(async () => {
     const fake = new FakeEmbeddingAdapter({ dimensions: DIMENSIONS });
-    const ctx = await createTestApp([{ token: EMBEDDING_PROVIDER, useValue: fake }]);
+    // Retrieval serves the persisted ACTIVE model (ADR 0023): pin the scope
+    // to the offline fake alongside the provider so this suite stays
+    // hermetic no matter what other suites wrote to `rag_embedding_state`.
+    const stateStub = {
+      getScope: () =>
+        Promise.resolve({
+          model: 'fake-hash-v1',
+          dimensions: DIMENSIONS,
+          column: 'embedding',
+          cast: 'vector' as const,
+          embed: (texts: string[]) => fake.embed(texts),
+        }),
+    };
+    const ctx = await createTestApp([
+      { token: EMBEDDING_PROVIDER, useValue: fake },
+      { token: EmbeddingStateService, useValue: stateStub },
+    ]);
     app = ctx.app;
     prisma = ctx.module.get(PrismaService);
     const client = prisma as unknown as PrismaClient;
@@ -284,7 +301,22 @@ describe('Search degraded mode (e2e)', () => {
       embed: (): Promise<number[][]> =>
         Promise.reject(new AiProviderError('server', 'provider down', 'fake')),
     };
-    const ctx = await createTestApp([{ token: EMBEDDING_PROVIDER, useValue: failing }]);
+    // Same hermetic scope pin as above, but with a rejecting embed so the
+    // degraded path triggers deterministically without network calls.
+    const stateStub = {
+      getScope: () =>
+        Promise.resolve({
+          model: 'fake-hash-v1',
+          dimensions: DIMENSIONS,
+          column: 'embedding',
+          cast: 'vector' as const,
+          embed: () => failing.embed(),
+        }),
+    };
+    const ctx = await createTestApp([
+      { token: EMBEDDING_PROVIDER, useValue: failing },
+      { token: EmbeddingStateService, useValue: stateStub },
+    ]);
     app = ctx.app;
   });
 

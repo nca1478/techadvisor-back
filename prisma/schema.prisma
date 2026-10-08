@@ -478,3 +478,61 @@ model Chunk {
   @@index([metadata], type: Gin)
   @@map("chunks")
 }
+
+// --- Embedding model switching (Fase 2, reindex) ----------------------------
+// Zero-downtime model changes (see AGENTS.md §7 and ADR 0023): retrieval
+// always queries the ACTIVE model/column recorded in `RagEmbeddingState`
+// (one row, `key = 'active'`), while a background `ReindexJob` fills the
+// target column in idempotent batches. The old vector column is never
+// dropped in the same task that introduces the new one. Vector columns
+// themselves (`embedding`, `embedding_halfvec`, `embedding_v2`) stay owned
+// by raw SQL migrations — Prisma has no vector type.
+
+/** Lifecycle of one model-switch reindex. */
+enum ReindexStatus {
+  RUNNING
+  COMPLETED
+}
+
+model RagEmbeddingState {
+  /** Always `'active'`: this table holds exactly one row. */
+  key String @id
+  /** Model id currently serving retrieval (e.g. `text-embedding-3-small`). */
+  model String
+  /** Width of the active vectors; selects the column via the registry. */
+  dim Int
+  /** Physical `chunks` column holding the active vectors. */
+  column String
+  /** pgvector cast for query literals (`vector` or `halfvec`). */
+  cast String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("rag_embedding_state")
+}
+
+model ReindexJob {
+  id String @id @default(uuid()) @db.Uuid
+  /** Model that was ACTIVE when the job started: scopes the activation flip. */
+  sourceModel String? @map("source_model")
+  /** Incoming model id (from `EMBEDDING_MODEL` at start time). */
+  targetModel String @map("target_model")
+  /** Incoming width (from `EMBEDDING_DIM` at start time). */
+  targetDim Int @map("target_dim")
+  /** Registry-resolved column receiving the new vectors. */
+  targetColumn String @map("target_column")
+  status ReindexStatus @default(RUNNING)
+  /** Chunk ids snapshotted at start; batches cover exactly this set. */
+  totalChunks Int @map("total_chunks")
+  /** Snapshotted chunks confirmed at the target model (incl. skips). */
+  processedChunks Int @default(0) @map("processed_chunks")
+  /** Snapshotted chunks that errored (retried via `resume`). */
+  failedChunks Int @default(0) @map("failed_chunks")
+  /** Chunk ids per BullMQ batch (from `EMBEDDING_BATCH_SIZE`). */
+  batchSize Int @map("batch_size")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("reindex_jobs")
+}

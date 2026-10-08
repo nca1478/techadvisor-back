@@ -118,6 +118,7 @@ describe('resolveEmbeddingColumn', () => {
   it('routes 1536 to vector and 2048 to halfvec, rejecting anything else', () => {
     expect(resolveEmbeddingColumn(1536)).toEqual({ column: 'embedding', cast: 'vector' });
     expect(resolveEmbeddingColumn(2048)).toEqual({ column: 'embedding_halfvec', cast: 'halfvec' });
+    expect(resolveEmbeddingColumn(16)).toEqual({ column: 'embedding_v2', cast: 'vector' });
     expect(() => resolveEmbeddingColumn(1024)).toThrow(/Unsupported embedding dimensions/);
   });
 });

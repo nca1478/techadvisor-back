@@ -1,11 +1,16 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   EMBEDDING_PROVIDER,
   type EmbeddingProvider,
+  type EmbedOptions,
 } from '../ai/interfaces/embedding-provider.interface.js';
+import { assertEmbeddingColumnIdentifier } from '../reindex/embedding-columns.js';
+import type { ActiveEmbeddingScope } from '../reindex/embedding-state.service.js';
+import { EmbeddingStateService } from '../reindex/embedding-state.service.js';
 import { fuseRankings } from './reciprocal-rank-fusion.js';
+import { resolveEmbeddingColumnRef } from '../reindex/embedding-columns.js';
 import {
   retrievalSearchSchema,
   type RetrievalSearch,
@@ -64,6 +69,22 @@ interface CandidateRow {
  * never interpolated into SQL text. Only `Prisma.raw` embeds identifiers,
  * and solely for the embedding column chosen from an internal allowlist.
  */
+/**
+ * Hybrid retrieval service (see ADR 0021): vector candidates (cosine) +
+ * full-text candidates (`ts_rank`) fused with Reciprocal Rank Fusion.
+ *
+ * Every filter is a hard SQL condition applied before ranking; all values
+ * travel as bound parameters via `Prisma.sql` composition — user input is
+ * never interpolated into SQL text. Only `Prisma.raw` embeds identifiers,
+ * and solely for the embedding column chosen from an internal allowlist.
+ *
+ * Model selection never reads env directly when the reindex module is
+ * wired: the persisted ACTIVE model (`EmbeddingStateService`, ADR 0023)
+ * decides which `embedding_model` tag and which physical column both
+ * branches query, so a background reindex never disturbs live search until
+ * an explicit activation. Without the state service (unit tests, legacy
+ * wiring) the injected env-configured provider is used as before.
+ */
 @Injectable()
 export class RetrievalService {
   private readonly logger = new Logger(RetrievalService.name);
@@ -71,12 +92,14 @@ export class RetrievalService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
+    @Optional() private readonly state?: EmbeddingStateService | null,
   ) {}
 
   async search(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
     const { query, filters, locale, topN, candidateK, rrfK } = this.parseInput(input);
+    const scope = await this.resolveScope();
 
-    const vectors = await this.embeddings.embed([query], { kind: 'query' });
+    const vectors = await scope.embed([query], { kind: 'query' });
     const queryVector = vectors.at(0);
     if (queryVector === undefined) {
       throw new RetrievalError('Embedding provider returned no vector for the query');
@@ -85,8 +108,14 @@ export class RetrievalService {
     // Both branches share the hard filters, including the active-model scope:
     // a query never touches chunks embedded with another model (or not
     // embedded yet) — see ADR 0021.
-    const conditions = this.buildFilterConditions(filters, this.embeddings.model);
-    const vectorCandidates = await this.vectorCandidates(queryVector, conditions, candidateK);
+    const conditions = this.buildFilterConditions(filters, scope.model);
+    const vectorCandidates = await this.vectorCandidates(
+      queryVector,
+      conditions,
+      candidateK,
+      scope.column,
+      scope.cast,
+    );
     const fulltextCandidates = await this.fulltextCandidates(
       query,
       filters.locales ?? [],
@@ -136,8 +165,9 @@ export class RetrievalService {
    */
   async searchFulltextOnly(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
     const { query, filters, locale, topN, candidateK, rrfK } = this.parseInput(input);
+    const scope = await this.resolveScope();
 
-    const conditions = this.buildFilterConditions(filters, this.embeddings.model);
+    const conditions = this.buildFilterConditions(filters, scope.model);
     const rows = await this.fulltextCandidates(
       query,
       filters.locales ?? [],
@@ -171,6 +201,31 @@ export class RetrievalService {
         source: { title: row.title, docType: row.docType, sourceUrl: row.sourceUrl },
       };
     });
+  }
+
+  /**
+   * Which model/column/provider serves this query. With the reindex module
+   * wired, the persisted ACTIVE model wins (its row is a single indexed PK
+   * lookup per search — negligible next to the embedding call and the hybrid
+   * SQL, and it can never go stale). Otherwise the env-configured provider
+   * behaves exactly as before (unit tests, legacy wiring).
+   */
+  private async resolveScope(): Promise<
+    Pick<ActiveEmbeddingScope, 'model' | 'column' | 'cast'> & {
+      embed: (texts: string[], opts?: EmbedOptions) => Promise<number[][]>;
+    }
+  > {
+    if (this.state !== undefined && this.state !== null) {
+      return this.state.getScope();
+    }
+    const { column, cast } = resolveEmbeddingColumn(this.embeddings.dimensions);
+    const provider = this.embeddings;
+    return {
+      model: provider.model,
+      column,
+      cast,
+      embed: (texts, opts) => provider.embed(texts, opts),
+    };
   }
 
   private parseInput(input: RetrievalSearchInput): RetrievalSearch {
@@ -251,10 +306,13 @@ export class RetrievalService {
     queryVector: number[],
     conditions: Prisma.Sql,
     limit: number,
+    column: string,
+    cast: 'vector' | 'halfvec',
   ): Promise<CandidateRow[]> {
-    const { column, cast } = resolveEmbeddingColumn(this.embeddings.dimensions);
+    assertEmbeddingColumnIdentifier(column);
     const literal = `[${queryVector.join(',')}]`;
-    // Column/cast come from the internal allowlist above — never user input.
+    // Column/cast come from the active scope (registry or persisted state,
+    // both allowlisted) — never user input.
     const columnRef = Prisma.raw(`c."${column}"`);
     const distance = Prisma.sql`${columnRef} <=> ${literal}::${Prisma.raw(cast)}`;
     return this.prisma.$queryRaw<CandidateRow[]>(Prisma.sql`
@@ -300,25 +358,28 @@ export class RetrievalService {
 }
 
 /**
- * Selects the pgvector column matching the active embedding width
- * (`1536 → embedding vector`, `2048 → embedding_halfvec`, see ADRs
- * 0017/0019). Any other width fails loudly — it needs its own column
- * migration plus ADR, never silent mixing. Returned fragments feed
- * `Prisma.raw` only (identifiers cannot be bound parameters).
+ * Selects the pgvector column matching the active embedding width.
+ * Single source of truth lives in `modules/reindex/embedding-columns.ts`
+ * (ADR 0023); this wrapper keeps the historical import path and the
+ * `RetrievalError` type for read-path failures. Any other width fails loudly
+ * — it needs its own column migration plus ADR, never silent mixing.
+ * Returned fragments feed `Prisma.raw` only (identifiers cannot be bound
+ * parameters).
  */
 export function resolveEmbeddingColumn(dimensions: number): {
-  column: 'embedding' | 'embedding_halfvec';
+  column: string;
   cast: 'vector' | 'halfvec';
 } {
-  if (dimensions === 1536) {
-    return { column: 'embedding', cast: 'vector' };
+  try {
+    return resolveEmbeddingColumnRef(dimensions);
+  } catch (error) {
+    throw new RetrievalError(
+      error instanceof Error
+        ? error.message
+        : `Unsupported embedding dimensions ${String(dimensions)}`,
+      { cause: error },
+    );
   }
-  if (dimensions === 2048) {
-    return { column: 'embedding_halfvec', cast: 'halfvec' };
-  }
-  throw new RetrievalError(
-    `Unsupported embedding dimensions ${String(dimensions)} (expected 1536 or 2048; a new width needs its own column migration, see ADR 0019)`,
-  );
 }
 
 /**

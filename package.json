@@ -22,6 +22,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "worker:ingestion": "node dist/modules/ingestion/ingestion.worker.js",
+    "worker:reindex": "node dist/modules/reindex/reindex.worker.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

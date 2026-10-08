@@ -64,6 +64,7 @@ Test users (local development only, never production):
 | `npm run seed`    | load idempotent dev/demo data   |
 | `npm run build`   | compile to `dist/`              |
 | `npm run worker:ingestion` | run the RAG ingestion worker (from `dist/`, needs `npm run build` first) |
+| `npm run worker:reindex` | run the embedding reindex worker (from `dist/`, needs `npm run build` first) |
 | `npm run lint`    | oxlint (type-aware)             |
 | `npm run typecheck` | `tsc --noEmit`                |
 | `npm test`        | unit tests (vitest)             |
@@ -83,6 +84,23 @@ Every ACTIVE product owns one auto-generated SPEC_SHEET document
 unchanged content is a no-op (same `content_hash` → skip, no provider call).
 Failures leave the document `FAILED` with a legible error and BullMQ backs
 off between attempts (`INGESTION_MAX_ATTEMPTS`, `INGESTION_BACKOFF_MS`).
+
+## Embedding reindex (model switch, zero downtime)
+
+Switching embedding models never rewrites the live column in place (see
+ADR `0023` for the full runbook and rollback):
+
+```bash
+npm run build && npm run worker:reindex
+```
+
+1. Point `EMBEDDING_MODEL` / `EMBEDDING_DIM` at the NEW model and restart.
+2. `POST /api/v1/admin/reindex` — snapshots every chunk and enqueues one
+   `reindex` queue job per batch; search keeps serving the ACTIVE model.
+3. Poll `GET /api/v1/admin/reindex/jobs/:id` until `activatable` is true
+   (`resume` re-enqueues whatever is still missing vectors).
+4. `POST /api/v1/admin/reindex/jobs/:id/activate` — flips retrieval to the
+   new model only at 100% with zero failures. The old column is kept.
 
 ## Payments (Stripe, test mode only)
 

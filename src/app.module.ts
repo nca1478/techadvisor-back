@@ -14,6 +14,7 @@ import { OrdersModule } from './modules/orders/orders.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { IngestionModule } from './modules/ingestion/ingestion.module.js';
+import { ReindexModule } from './modules/reindex/reindex.module.js';
 import { RetrievalModule } from './modules/retrieval/retrieval.module.js';
 import { SearchModule } from './modules/search/search.module.js';
 
@@ -33,6 +34,7 @@ import { SearchModule } from './modules/search/search.module.js';
     PaymentsModule,
     AiModule,
     IngestionModule,
+    ReindexModule,
     RetrievalModule,
     SearchModule,
   ],

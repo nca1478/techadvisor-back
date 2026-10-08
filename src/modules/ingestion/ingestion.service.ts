@@ -9,7 +9,12 @@ import {
 } from '@nestjs/common';
 import { APP_CONFIG } from '../../config/app-config.module.js';
 import type { AppConfig } from '../../config/env.schema.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import {
+  assertEmbeddingColumnIdentifier,
+  resolveEmbeddingColumnRef,
+} from '../reindex/embedding-columns.js';
 import { EMBEDDING_PROVIDER } from '../ai/interfaces/embedding-provider.interface.js';
 import type { EmbeddingProvider } from '../ai/interfaces/embedding-provider.interface.js';
 import { chunkText } from './chunker.js';
@@ -182,7 +187,7 @@ export class IngestionService {
           `Embedding provider returned ${String(vectors.length)} vectors for ${String(chunks.length)} chunks`,
         );
       }
-      const column = resolveEmbeddingColumn(this.embeddings.dimensions);
+      const { column, cast } = embeddingColumnForIngest(this.embeddings.dimensions);
       const model = this.embeddings.model;
       const dimensions = this.embeddings.dimensions;
 
@@ -206,17 +211,21 @@ export class IngestionService {
           embeddingDim: dimensions,
         }));
         await tx.chunk.createMany({ data: rows });
+        // The vector column is resolved from the shared registry (ADR 0023);
+        // the identifier is allowlisted before interpolation because column
+        // names cannot travel as bound parameters.
+        assertEmbeddingColumnIdentifier(column);
+        const columnRef = Prisma.raw(`"${column}"`);
+        const vectorCast = Prisma.raw(cast);
         for (const [index, row] of rows.entries()) {
           const vector = vectors.at(index);
           if (vector === undefined) {
             throw new IngestionError(`Missing embedding vector for chunk ${String(index)}`);
           }
           const literal = `[${vector.join(',')}]`;
-          if (column === 'embedding') {
-            await tx.$executeRaw`UPDATE "chunks" SET "embedding" = ${literal}::vector WHERE "id" = ${row.id}::uuid`;
-          } else {
-            await tx.$executeRaw`UPDATE "chunks" SET "embedding_halfvec" = ${literal}::halfvec WHERE "id" = ${row.id}::uuid`;
-          }
+          await tx.$executeRaw(
+            Prisma.sql`UPDATE "chunks" SET ${columnRef} = ${literal}::${vectorCast} WHERE "id" = ${row.id}::uuid`,
+          );
         }
       });
 
@@ -249,19 +258,28 @@ export class IngestionService {
 }
 
 /**
- * Selects the pgvector column matching the configured embedding width:
- * `1536 → embedding vector` (default model, ADR 0017),
- * `2048 → embedding_halfvec` (NVIDIA, ADR 0018). Any other width fails
+ * Selects the pgvector column matching the configured embedding width.
+ * Single source of truth lives in `modules/reindex/embedding-columns.ts`
+ * (ADR 0023); this wrapper keeps the historical import path and the
+ * `IngestionError` type for write-path failures. Any other width fails
  * loudly — it needs its own column migration plus ADR, never silent mixing.
  */
-export function resolveEmbeddingColumn(dimensions: number): 'embedding' | 'embedding_halfvec' {
-  if (dimensions === 1536) {
-    return 'embedding';
+export function resolveEmbeddingColumn(dimensions: number): string {
+  return embeddingColumnForIngest(dimensions).column;
+}
+
+function embeddingColumnForIngest(dimensions: number): {
+  column: string;
+  cast: 'vector' | 'halfvec';
+} {
+  try {
+    return resolveEmbeddingColumnRef(dimensions);
+  } catch (error) {
+    throw new IngestionError(
+      error instanceof Error
+        ? error.message
+        : `Unsupported embedding dimensions ${String(dimensions)}`,
+      { cause: error },
+    );
   }
-  if (dimensions === 2048) {
-    return 'embedding_halfvec';
-  }
-  throw new IngestionError(
-    `Unsupported embedding dimensions ${String(dimensions)} (expected 1536 or 2048; a new width needs its own column migration, see ADR 0019)`,
-  );
 }

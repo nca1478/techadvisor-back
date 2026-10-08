@@ -303,6 +303,7 @@ describe('IngestionService pipeline (integration)', () => {
   it('routes vectors by embedding width and rejects unknown widths', () => {
     expect(resolveEmbeddingColumn(1536)).toBe('embedding');
     expect(resolveEmbeddingColumn(2048)).toBe('embedding_halfvec');
+    expect(resolveEmbeddingColumn(16)).toBe('embedding_v2');
     expect(() => resolveEmbeddingColumn(1024)).toThrow(/Unsupported embedding dimensions/);
   });
 });
