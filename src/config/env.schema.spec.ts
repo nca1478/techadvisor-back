@@ -169,6 +169,28 @@ describe('parseEnv', () => {
     expect(config.EMBEDDING_DIM).toBe(768);
   });
 
+  it('accepts an nvidia embedding configuration (nemotron-3-embed-1b, ADR 0018)', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      EMBEDDING_PROVIDER: 'nvidia',
+      EMBEDDING_MODEL: 'nvidia/nemotron-3-embed-1b',
+      EMBEDDING_API_KEY: 'nvapi-test',
+      EMBEDDING_BASE_URL: 'https://integrate.api.nvidia.com/v1',
+      EMBEDDING_DIM: '2048',
+    });
+
+    expect(config.EMBEDDING_PROVIDER).toBe('nvidia');
+    expect(config.EMBEDDING_MODEL).toBe('nvidia/nemotron-3-embed-1b');
+    expect(config.EMBEDDING_BASE_URL).toBe('https://integrate.api.nvidia.com/v1');
+    expect(config.EMBEDDING_DIM).toBe(2048);
+  });
+
+  it('requires base url and model for nvidia too', () => {
+    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_PROVIDER: 'nvidia' })).toThrow(
+      /EMBEDDING_BASE_URL and EMBEDDING_MODEL are required/,
+    );
+  });
+
   it('treats empty embedding key/url/model as unset', () => {
     const config = parseEnv({
       ...VALID_ENV,
@@ -208,7 +230,7 @@ describe('parseEnv', () => {
       }),
     ).toThrow(/EMBEDDING_BASE_URL/);
     expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_DIM: '0' })).toThrow(/EMBEDDING_DIM/);
-    // pgvector indexed-vector cap (AGENTS.md §7): larger outputs need reduction first.
-    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_DIM: '3072' })).toThrow(/EMBEDDING_DIM/);
+    // pgvector indexed caps: 2000 (`vector`), 4000 (`halfvec`, ADR 0018).
+    expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_DIM: '5000' })).toThrow(/EMBEDDING_DIM/);
   });
 });

@@ -153,16 +153,18 @@ const envSchema = z
     STRIPE_PUBLISHABLE_KEY: stripePublishableKeySchema,
     STRIPE_WEBHOOK_SECRET: stripeWebhookSecretSchema,
     EMBEDDING_PROVIDER: z
-      .enum(['fake', 'openai-compatible'], {
-        error: 'EMBEDDING_PROVIDER must be one of: fake, openai-compatible',
+      .enum(['fake', 'openai-compatible', 'nvidia'], {
+        error: 'EMBEDDING_PROVIDER must be one of: fake, openai-compatible, nvidia',
       })
       .default('fake'),
     EMBEDDING_MODEL: embeddingModelSchema,
     EMBEDDING_API_KEY: embeddingApiKeySchema,
     EMBEDDING_BASE_URL: embeddingBaseUrlSchema,
-    // pgvector caps indexed `vector(N)` at 2.000 dimensions (AGENTS.md §7):
-    // larger provider outputs must use server-side reduction first.
-    EMBEDDING_DIM: z.coerce.number().int().min(1).max(2000).default(1536),
+    // pgvector indexed caps: 2.000 dims for `vector`, 4.000 for `halfvec`
+    // (AGENTS.md §7, ADRs 0017/0018). Larger provider outputs must use
+    // server-side reduction (or halfvec storage) first. The value must always
+    // equal the indexed column width of the configured model.
+    EMBEDDING_DIM: z.coerce.number().int().min(1).max(4000).default(1536),
     EMBEDDING_BATCH_SIZE: z.coerce.number().int().min(1).max(2048).default(100),
     EMBEDDING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300000).default(30000),
     EMBEDDING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
@@ -179,11 +181,11 @@ const envSchema = z
   })
   .refine(
     (env) =>
-      env.EMBEDDING_PROVIDER !== 'openai-compatible' ||
+      env.EMBEDDING_PROVIDER === 'fake' ||
       (env.EMBEDDING_BASE_URL !== undefined && env.EMBEDDING_MODEL !== undefined),
     {
       error:
-        'EMBEDDING_BASE_URL and EMBEDDING_MODEL are required when EMBEDDING_PROVIDER is openai-compatible',
+        'EMBEDDING_BASE_URL and EMBEDDING_MODEL are required when EMBEDDING_PROVIDER is openai-compatible or nvidia',
       path: ['EMBEDDING_BASE_URL'],
     },
   );

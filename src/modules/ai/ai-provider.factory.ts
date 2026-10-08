@@ -1,6 +1,7 @@
 import type { AppConfig } from '../../config/env.schema.js';
 import type { EmbeddingProvider } from './interfaces/embedding-provider.interface.js';
 import { FakeEmbeddingAdapter } from './adapters/fake-embedding.adapter.js';
+import { NvidiaEmbeddingAdapter } from './adapters/nvidia-embedding.adapter.js';
 import {
   OpenAiCompatibleEmbeddingAdapter,
   type EmbeddingFetch,
@@ -24,6 +25,23 @@ export function createEmbeddingProvider(
       });
     case 'openai-compatible':
       return new OpenAiCompatibleEmbeddingAdapter(
+        {
+          baseUrl: config.EMBEDDING_BASE_URL ?? '',
+          apiKey: config.EMBEDDING_API_KEY,
+          // Empty model/baseUrl fall through to the adapter's AiConfigError;
+          // the env schema already rejects this combination at boot.
+          model: config.EMBEDDING_MODEL ?? '',
+          dimensions: config.EMBEDDING_DIM,
+          batchSize: config.EMBEDDING_BATCH_SIZE,
+          timeoutMs: config.EMBEDDING_TIMEOUT_MS,
+          maxAttempts: config.EMBEDDING_MAX_ATTEMPTS,
+          baseDelayMs: config.EMBEDDING_RETRY_BASE_DELAY_MS,
+          maxDelayMs: config.EMBEDDING_RETRY_MAX_DELAY_MS,
+        },
+        fetchImpl,
+      );
+    case 'nvidia':
+      return new NvidiaEmbeddingAdapter(
         {
           baseUrl: config.EMBEDDING_BASE_URL ?? '',
           apiKey: config.EMBEDDING_API_KEY,
