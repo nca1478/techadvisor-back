@@ -370,11 +370,12 @@ model ProcessedWebhookEvent {
 
 // --- RAG corpus (Fase 2) -----------------------------------------------------
 // Source documents and their text chunks live in the same PostgreSQL as the
-// rest of the domain (no external vector store, see AGENTS.md §2). This task
-// covers persistence + full-text search only:
-// - NO `embedding vector(N)` column yet (added when the default embedding
-//   model fixes N, task P2.3). Each chunk will then also store
-//   `embedding_model`/`embedding_dim`; never mix models in one column.
+// rest of the domain (no external vector store, see AGENTS.md §2).
+// - `embedding vector(1536)` (default model text-embedding-3-small, ADR
+//   0017) is owned entirely by a manual SQL migration: Prisma has no vector
+//   type, so it has no counterpart here and is written/read via `$queryRaw`.
+//   Each embedded chunk records `embeddingModel`/`embeddingDim` below; never
+//   mix models or dimensions in one column (see ADR 0017 §switching models).
 // - NO `tsv tsvector` field in the Prisma models: Prisma has no tsvector
 //   type, so the `tsv` column is owned entirely by a manual SQL migration
 //   (trigger + GIN index, see ADR 0015) and queried via `$queryRaw`.
@@ -438,6 +439,14 @@ model Chunk {
   locale     String
   /** Denormalized retrieval filters (productId, category, docType, ...). */
   metadata   Json     @default("{}") @db.JsonB
+  /**
+   * Id of the model that produced the chunk embedding
+   * (e.g. `text-embedding-3-small`, ADR 0017; `fake-hash-v1` for offline
+   * fixtures). NULL until the chunk is embedded.
+   */
+  embeddingModel String? @map("embedding_model")
+  /** Length of the stored embedding vector (1536 for the default model). */
+  embeddingDim Int? @map("embedding_dim")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
