@@ -32,9 +32,12 @@ export const ACTIVE_EMBEDDING_KEY = 'active';
 /** Fallback model id when `EMBEDDING_MODEL` is unset (offline `fake` provider). */
 export const FALLBACK_FAKE_MODEL = 'fake-hash-v1';
 
-/** Deterministic BullMQ job id: a batch is never queued twice. */
+/**
+ * Deterministic BullMQ job id: a batch is never queued twice. The
+ * separator is `-` because BullMQ rejects custom ids containing `:`.
+ */
 export function reindexBatchJobId(reindexJobId: string, batchIndex: number): string {
-  return `reindex:${reindexJobId}:${String(batchIndex)}`;
+  return `reindex-${reindexJobId}-${String(batchIndex)}`;
 }
 
 export interface ReindexRetryOptions {

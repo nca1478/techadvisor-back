@@ -23,6 +23,8 @@ import { DocumentExtractorService, ExtractionError } from './document-extractor.
 import {
   INGESTION_JOB_NAME,
   INGESTION_QUEUE,
+  INGESTION_TX_MAX_WAIT_MS,
+  INGESTION_TX_TIMEOUT_MS,
   MAX_ERROR_LENGTH,
   MAX_JOB_BYTES,
   buildIngestionJobOptions,
@@ -191,43 +193,46 @@ export class IngestionService {
       const model = this.embeddings.model;
       const dimensions = this.embeddings.dimensions;
 
-      await this.prisma.$transaction(async (tx) => {
-        await tx.chunk.deleteMany({ where: { documentId } });
-        const rows = chunks.map((chunk, index) => ({
-          id: randomUUID(),
-          documentId,
-          productId: document.productId,
-          ord: index,
-          content: chunk.content,
-          locale: document.locale,
-          metadata: {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.chunk.deleteMany({ where: { documentId } });
+          const rows = chunks.map((chunk, index) => ({
+            id: randomUUID(),
+            documentId,
             productId: document.productId,
-            categoryId: document.categoryId,
-            docType: document.type,
-            title: document.title,
-            section: chunk.section,
-          },
-          embeddingModel: model,
-          embeddingDim: dimensions,
-        }));
-        await tx.chunk.createMany({ data: rows });
-        // The vector column is resolved from the shared registry (ADR 0023);
-        // the identifier is allowlisted before interpolation because column
-        // names cannot travel as bound parameters.
-        assertEmbeddingColumnIdentifier(column);
-        const columnRef = Prisma.raw(`"${column}"`);
-        const vectorCast = Prisma.raw(cast);
-        for (const [index, row] of rows.entries()) {
-          const vector = vectors.at(index);
-          if (vector === undefined) {
-            throw new IngestionError(`Missing embedding vector for chunk ${String(index)}`);
+            ord: index,
+            content: chunk.content,
+            locale: document.locale,
+            metadata: {
+              productId: document.productId,
+              categoryId: document.categoryId,
+              docType: document.type,
+              title: document.title,
+              section: chunk.section,
+            },
+            embeddingModel: model,
+            embeddingDim: dimensions,
+          }));
+          await tx.chunk.createMany({ data: rows });
+          // The vector column is resolved from the shared registry (ADR 0023);
+          // the identifier is allowlisted before interpolation because column
+          // names cannot travel as bound parameters.
+          assertEmbeddingColumnIdentifier(column);
+          const columnRef = Prisma.raw(`"${column}"`);
+          const vectorCast = Prisma.raw(cast);
+          for (const [index, row] of rows.entries()) {
+            const vector = vectors.at(index);
+            if (vector === undefined) {
+              throw new IngestionError(`Missing embedding vector for chunk ${String(index)}`);
+            }
+            const literal = `[${vector.join(',')}]`;
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE "chunks" SET ${columnRef} = ${literal}::${vectorCast} WHERE "id" = ${row.id}::uuid`,
+            );
           }
-          const literal = `[${vector.join(',')}]`;
-          await tx.$executeRaw(
-            Prisma.sql`UPDATE "chunks" SET ${columnRef} = ${literal}::${vectorCast} WHERE "id" = ${row.id}::uuid`,
-          );
-        }
-      });
+        },
+        { maxWait: INGESTION_TX_MAX_WAIT_MS, timeout: INGESTION_TX_TIMEOUT_MS },
+      );
 
       await this.prisma.document.update({
         where: { id: documentId },

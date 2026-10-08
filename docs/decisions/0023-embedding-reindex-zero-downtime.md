@@ -37,8 +37,9 @@ both model ids during a switch) and cached per `model:dim`.
   column exists (otherwise 422 with the exact migration SQL to apply —
   columns are never created by implicit runtime DDL), snapshots every
   chunk id, and enqueues one job per batch (`EMBEDDING_BATCH_SIZE` ids
-  each, deterministic `jobId = reindex:{job}:{index}` so a batch is never
-  queued twice). Starting twice for the same target rejoins the RUNNING
+  each, deterministic `jobId = reindex-{job}-{index}` so a batch is never
+  queued twice (BullMQ rejects custom ids containing `:`, hence `-`).
+  Starting twice for the same target rejoins the RUNNING
   job; a different target while one runs is 409.
 - Batches (`ReindexService.processBatch`, also the BullMQ processor body)
   embed only chunks still missing a vector in the target column and write

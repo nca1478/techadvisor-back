@@ -291,7 +291,7 @@ describe('IngestionService pipeline (integration)', () => {
     expect(added[0]?.name).toBe('ingest-document');
     expect(added[0]?.opts).toMatchObject({
       attempts: 5,
-      jobId: `ingestion:${documentId}`,
+      jobId: `ingestion-${documentId}`,
     });
   });
 

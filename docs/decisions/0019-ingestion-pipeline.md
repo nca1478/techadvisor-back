@@ -43,7 +43,8 @@ before installing:
 
 - One BullMQ queue, `ingestion`, owned by `IngestionModule`.
 - The **API process only enqueues** (`IngestionService.enqueueDocument`,
-  `jobId = ingestion:{documentId}` so a document is never queued twice).
+  `jobId = ingestion-{documentId}` so a document is never queued twice;
+  BullMQ rejects custom ids containing `:`, hence the `-` separator).
 - A **standalone worker process** (`src/modules/ingestion/ingestion.worker.ts`,
   `npm run worker:ingestion`) boots the full application context (same
   services, same config — `createApplicationContext`, no HTTP server) and
@@ -53,14 +54,14 @@ before installing:
   heavier boot.
 - Rationale: API and worker scale independently and a poison document can
   never block HTTP; no code is duplicated (both share `IngestionService`
-  + `processIngestionJob`). Local dev runs `npm run dev` and (after
-  `npm run build`) `npm run worker:ingestion` side by side.
+  - `processIngestionJob`). Local dev runs `npm run dev` and (after
+    `npm run build`) `npm run worker:ingestion` side by side.
 - The worker runs from compiled output (`node dist/...`, like `start:prod`),
   not via `tsx` on sources: loading the app graph directly with `tsx`
   fails on a **pre-existing** native-ESM circular import in the auth modules
   (`AuthService` undefined dependency — reproduced on clean `main` without
   this task's changes, so it is out of scope here). The Nest CLI (`npm run
-  dev`), `nest build` + `node`, and vitest all boot the same graph fine.
+dev`), `nest build` + `node`, and vitest all boot the same graph fine.
 - **Retries:** `attempts = INGESTION_MAX_ATTEMPTS` (default 5) with
   exponential backoff from `INGESTION_BACKOFF_MS` (default 5000 ms) —
   BullMQ-native, no custom scheduler. After the last attempt the job lands in
@@ -123,4 +124,4 @@ Token estimate `tokens ≈ ceil(chars / 4)`. Targets: `TARGET ≈ 1600` chars
 - Tests: pure unit specs for chunker/cleaner/extractor; DB integration spec
   for the full pipeline with the fake adapter (same-hash skip without a
   provider call, changed-content replacement, provider-failure → `FAILED`
-  + retry).
+  - retry).

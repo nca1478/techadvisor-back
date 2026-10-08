@@ -43,9 +43,22 @@ export const MANUAL_SOURCE = 'manual';
 /** Failure detail persisted on `documents.error` is truncated to this. */
 export const MAX_ERROR_LENGTH = 500;
 
-/** Deterministic BullMQ job id: a document is never queued twice. */
+/**
+ * Interactive-transaction budget for the ingest persist step (delete +
+ * createMany + one vector UPDATE per chunk). Multi-page PDFs exceed Prisma's
+ * 5s default (remote embedding latency plus sequential UPDATEs), so this
+ * step gets a background-scale budget; the payload itself stays bounded by
+ * `MAX_JOB_BYTES`. Never used on request-interactive paths.
+ */
+export const INGESTION_TX_MAX_WAIT_MS = 15_000;
+export const INGESTION_TX_TIMEOUT_MS = 120_000;
+
+/**
+ * Deterministic BullMQ job id: a document is never queued twice. The
+ * separator is `-` because BullMQ rejects custom ids containing `:`.
+ */
 export function ingestionJobId(documentId: string): string {
-  return `ingestion:${documentId}`;
+  return `ingestion-${documentId}`;
 }
 
 export interface IngestionRetryOptions {

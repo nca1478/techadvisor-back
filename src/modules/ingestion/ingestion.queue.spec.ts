@@ -5,9 +5,11 @@ import { parseRedisConnection } from './ingestion.queue.js';
 /** Unit tests for queue wiring helpers (no Redis connection is opened). */
 describe('ingestion queue helpers', () => {
   it('derives a stable job id per document for BullMQ dedup', () => {
-    expect(ingestionJobId('doc-1')).toBe('ingestion:doc-1');
+    expect(ingestionJobId('doc-1')).toBe('ingestion-doc-1');
     expect(ingestionJobId('doc-1')).toBe(ingestionJobId('doc-1'));
     expect(ingestionJobId('doc-1')).not.toBe(ingestionJobId('doc-2'));
+    // BullMQ rejects custom ids containing ':'.
+    expect(ingestionJobId('doc-1')).not.toContain(':');
   });
 
   it('builds bounded attempts with exponential backoff', () => {
