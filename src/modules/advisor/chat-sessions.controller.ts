@@ -31,8 +31,7 @@ import { CurrentUser, type RequestUser } from '../auth/current-user.decorator.js
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
-import { getOptionalUser, OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
-import { newSignedSid, readGuestSessionId, setGuestSessionCookie } from '../cart/guest-session.js';
+import { OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
 import {
   chatMessageBodySchema,
   chatSessionParamsSchema,
@@ -40,6 +39,7 @@ import {
   type ChatSessionParams,
 } from './chat-sessions.schemas.js';
 import { ChatSessionsService, type ChatSessionOwner } from './chat-sessions.service.js';
+import { resolveSessionOwner } from './session-owner.js';
 import {
   ChatMessageResponseDto,
   ChatSessionHistoryResponseDto,
@@ -139,21 +139,7 @@ export class ChatSessionsController {
     return this.sessions.cleanupExpiredAnonymousSessions();
   }
 
-  /**
-   * Authenticated requests resolve to the user; anonymous ones to the guest
-   * session, issuing a fresh signed `sid` cookie when needed (same as carts).
-   */
   private resolveOwner(req: Request, res: Response): ChatSessionOwner {
-    const user = getOptionalUser(req as unknown as Record<string, unknown>);
-    if (user !== null) {
-      return { kind: 'user', userId: user.id };
-    }
-    const sessionId = readGuestSessionId(req, this.config.JWT_SECRET);
-    if (sessionId !== null) {
-      return { kind: 'guest', anonSessionId: sessionId };
-    }
-    const fresh = newSignedSid(this.config.JWT_SECRET);
-    setGuestSessionCookie(res, fresh.signed);
-    return { kind: 'guest', anonSessionId: fresh.sessionId };
+    return resolveSessionOwner(req, res, this.config.JWT_SECRET);
   }
 }

@@ -13,6 +13,7 @@ import type { LlmGenerateResult } from '../ai/interfaces/llm-provider.interface.
 import type { InventoryService } from '../inventory/inventory.service.js';
 import type { RetrievalService, RetrievalHit } from '../retrieval/retrieval.service.js';
 import { abstentionMessage, AdvisorService, mergeEvidence } from './advisor.service.js';
+import type { ChatSessionsService, ChatSessionOwner } from './chat-sessions.service.js';
 import { buildCitations, extractCitationNumbers } from './citations.js';
 import {
   buildProductQaUserMessage,
@@ -21,6 +22,8 @@ import {
 } from './prompts/product-qa.prompt.js';
 
 const PRODUCT_ID = '11111111-1111-4111-8111-111111111111';
+const SESSION_ID = '55555555-5555-4555-8555-555555555555';
+const OWNER: ChatSessionOwner = { kind: 'user', userId: 'user-1' };
 
 const CONFIG = {
   SUPPORTED_LOCALES: ['en', 'es'],
@@ -90,8 +93,11 @@ function buildService(options: {
   const inventory = {
     getAvailable: vi.fn().mockResolvedValue(options.available ?? 5),
   } as unknown as InventoryService;
-  const service = new AdvisorService(prisma, retrieval, llm, inventory, CONFIG);
-  return { service, searchMock, createMock, llm };
+  const assertSessionOwned = vi.fn().mockResolvedValue(undefined);
+  const addMessage = vi.fn().mockResolvedValue({ id: 'm1' });
+  const chatSessions = { assertSessionOwned, addMessage } as unknown as ChatSessionsService;
+  const service = new AdvisorService(prisma, retrieval, llm, inventory, chatSessions, CONFIG);
+  return { service, searchMock, createMock, llm, assertSessionOwned, addMessage };
 }
 
 /** Fake LLM that always fails like a real provider outage (auth/5xx). */
@@ -120,11 +126,14 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       generalHits: [],
     });
 
-    const response = await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Cuánto dura la batería?',
-      locale: 'es',
-    });
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Cuánto dura la batería?',
+        locale: 'es',
+      },
+      OWNER,
+    );
 
     expect(response.abstained).toBe(false);
     expect(response.answer).toContain('[1]');
@@ -141,18 +150,26 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
   it('abstains without calling the LLM when retrieval returns nothing', async () => {
     const { service, llm, createMock } = buildService({ productHits: [], generalHits: [] });
 
-    const response = await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Tiene bluetooth?',
-      locale: 'es',
-    });
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Tiene bluetooth?',
+        locale: 'es',
+      },
+      OWNER,
+    );
 
     expect(response).toMatchObject({ abstained: true, citations: [] });
     expect(response.answer.toLowerCase()).toContain('no tengo esa información');
     expect(llm.calls).toHaveLength(0);
     expect(createMock).toHaveBeenCalledOnce();
     expect(createMock).toHaveBeenCalledWith({
-      data: { query: '¿Tiene bluetooth?', productId: PRODUCT_ID, reason: 'no_evidence' },
+      data: {
+        query: '¿Tiene bluetooth?',
+        productId: PRODUCT_ID,
+        sessionId: null,
+        reason: 'no_evidence',
+      },
     });
   });
 
@@ -162,17 +179,25 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       generalHits: [],
     });
 
-    const response = await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Tiene bluetooth?',
-    });
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Tiene bluetooth?',
+      },
+      OWNER,
+    );
 
     expect(response.abstained).toBe(true);
     // Default locale is English.
     expect(response.answer).toContain("don't have that information");
     expect(llm.calls).toHaveLength(0);
     expect(createMock).toHaveBeenCalledWith({
-      data: { query: '¿Tiene bluetooth?', productId: PRODUCT_ID, reason: 'below_threshold' },
+      data: {
+        query: '¿Tiene bluetooth?',
+        productId: PRODUCT_ID,
+        sessionId: null,
+        reason: 'below_threshold',
+      },
     });
   });
 
@@ -183,10 +208,13 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       llmText: 'Ver [1] y también el detalle [99].',
     });
 
-    const response = await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Qué dice el manual?',
-    });
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Qué dice el manual?',
+      },
+      OWNER,
+    );
 
     expect(response.abstained).toBe(false);
     expect(response.citations.map((citation) => citation.n)).toEqual([1]);
@@ -201,10 +229,13 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       llmText: 'El manual describe el uso previsto [1].',
     });
 
-    const response = await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Qué dice el manual?',
-    });
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Qué dice el manual?',
+      },
+      OWNER,
+    );
 
     // The service behavior is unchanged: the canned answer passes through
     // and the chunk is only evidence. The sent prompt frames the chunk as
@@ -225,7 +256,10 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       available: 5,
     });
 
-    await service.answerProductQuestion({ productId: PRODUCT_ID, question: '¿Cuánto cuesta?' });
+    await service.answerProductQuestion(
+      { productId: PRODUCT_ID, question: '¿Cuánto cuesta?' },
+      OWNER,
+    );
 
     const sent = firstSentContent(llm);
     // SQL facts block carries the real price (100_00 minor units) and stock.
@@ -243,10 +277,13 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       generalHits: [],
     });
 
-    await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Cuánto dura la batería?',
-    });
+    await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Cuánto dura la batería?',
+      },
+      OWNER,
+    );
 
     // The only user text reaching the provider is the question itself; the
     // service never attaches account data (email, address, user id).
@@ -264,7 +301,7 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
     const { service, searchMock, llm, createMock } = buildService({ product: null });
 
     await expect(
-      service.answerProductQuestion({ productId: PRODUCT_ID, question: '¿Hola?' }),
+      service.answerProductQuestion({ productId: PRODUCT_ID, question: '¿Hola?' }, OWNER),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(searchMock).not.toHaveBeenCalled();
     expect(llm.calls).toHaveLength(0);
@@ -279,7 +316,7 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
     });
 
     const error = await service
-      .answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' })
+      .answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' }, OWNER)
       .catch((cause: unknown) => cause);
 
     expect(error).toBeInstanceOf(ServiceUnavailableException);
@@ -297,7 +334,7 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
     });
 
     const error = await service
-      .answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' })
+      .answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' }, OWNER)
       .catch((cause: unknown) => cause);
 
     expect(error).toBeInstanceOf(HttpException);
@@ -314,7 +351,7 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
     });
 
     await expect(
-      service.answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' }),
+      service.answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' }, OWNER),
     ).rejects.toThrow('boom');
   });
 
@@ -328,14 +365,133 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
       llmText: 'Garantía de 2 años [1] y batería de 10h [2].',
     });
 
-    const response = await service.answerProductQuestion({
-      productId: PRODUCT_ID,
-      question: '¿Garantía y batería?',
-    });
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Garantía y batería?',
+      },
+      OWNER,
+    );
 
     expect(response.abstained).toBe(false);
     // Ordered by score: policy chunk first, then the product chunk.
     expect(response.citations.map((citation) => citation.chunkId)).toEqual(['b', 'a']);
+  });
+
+  it('leaves chat history untouched when no sessionId is set', async () => {
+    const { service, llm, assertSessionOwned, addMessage } = buildService({
+      productHits: [hit('a', PRODUCT_ID, 0.03, 'La batería dura 10 horas.')],
+      generalHits: [],
+    });
+
+    const response = await service.answerProductQuestion(
+      {
+        productId: PRODUCT_ID,
+        question: '¿Cuánto dura la batería?',
+      },
+      OWNER,
+    );
+
+    expect(response.abstained).toBe(false);
+    expect(llm.calls).toHaveLength(1);
+    expect(assertSessionOwned).not.toHaveBeenCalled();
+    expect(addMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdvisorService session recording (unit, mocked database)', () => {
+  it('records USER + ASSISTANT turns in the owned session on answers', async () => {
+    const { service, assertSessionOwned, addMessage } = buildService({
+      productHits: [hit('a', PRODUCT_ID, 0.03, 'La batería dura 10 horas.')],
+      generalHits: [],
+    });
+
+    const response = await service.answerProductQuestion(
+      { productId: PRODUCT_ID, question: '¿Cuánto dura la batería?', sessionId: SESSION_ID },
+      OWNER,
+    );
+
+    expect(response.abstained).toBe(false);
+    expect(assertSessionOwned).toHaveBeenCalledWith(SESSION_ID, OWNER);
+    expect(addMessage).toHaveBeenCalledTimes(2);
+    expect(addMessage).toHaveBeenNthCalledWith(1, SESSION_ID, OWNER, {
+      role: 'USER',
+      content: '¿Cuánto dura la batería?',
+    });
+    expect(addMessage).toHaveBeenNthCalledWith(2, SESSION_ID, OWNER, {
+      role: 'ASSISTANT',
+      content: response.answer,
+      citations: response.citations,
+      products: [],
+    });
+  });
+
+  it('records the user turn and the session id on abstentions', async () => {
+    const { service, llm, createMock, assertSessionOwned, addMessage } = buildService({
+      productHits: [],
+      generalHits: [],
+    });
+
+    const response = await service.answerProductQuestion(
+      { productId: PRODUCT_ID, question: '¿Tiene bluetooth?', sessionId: SESSION_ID },
+      OWNER,
+    );
+
+    expect(response.abstained).toBe(true);
+    expect(llm.calls).toHaveLength(0);
+    expect(createMock).toHaveBeenCalledWith({
+      data: {
+        query: '¿Tiene bluetooth?',
+        productId: PRODUCT_ID,
+        sessionId: SESSION_ID,
+        reason: 'no_evidence',
+      },
+    });
+    expect(assertSessionOwned).toHaveBeenCalledWith(SESSION_ID, OWNER);
+    expect(addMessage).toHaveBeenCalledTimes(1);
+    expect(addMessage).toHaveBeenCalledWith(SESSION_ID, OWNER, {
+      role: 'USER',
+      content: '¿Tiene bluetooth?',
+    });
+  });
+
+  it('404s before retrieval or the LLM when the session is not owned', async () => {
+    const searchMock = vi.fn();
+    const createMock = vi.fn();
+    const addMessage = vi.fn();
+    const prisma = {
+      product: { findFirst: vi.fn().mockResolvedValue(productRow()) },
+      unansweredQuery: { create: createMock },
+    } as unknown as PrismaService;
+    const retrieval = { search: searchMock } as unknown as RetrievalService;
+    const llm = new FakeLlmAdapter({ defaultText: 'unused [1].' });
+    const inventory = { getAvailable: vi.fn() } as unknown as InventoryService;
+    const rejectingSessions = {
+      assertSessionOwned: vi
+        .fn()
+        .mockRejectedValue(new NotFoundException({ message: 'Chat session not found' })),
+      addMessage,
+    } as unknown as ChatSessionsService;
+    const service = new AdvisorService(
+      prisma,
+      retrieval,
+      llm,
+      inventory,
+      rejectingSessions,
+      CONFIG,
+    );
+    const intruder: ChatSessionOwner = { kind: 'user', userId: 'user-2' };
+
+    await expect(
+      service.answerProductQuestion(
+        { productId: PRODUCT_ID, question: '¿Hola?', sessionId: SESSION_ID },
+        intruder,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(searchMock).not.toHaveBeenCalled();
+    expect(llm.calls).toHaveLength(0);
+    expect(createMock).not.toHaveBeenCalled();
+    expect(addMessage).not.toHaveBeenCalled();
   });
 });
 

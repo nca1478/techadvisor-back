@@ -4,6 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { parseEnv } from '../src/config/env.schema.js';
 import { APP_CONFIG } from '../src/config/app-config.module.js';
+import { FakeEmbeddingAdapter } from '../src/modules/ai/adapters/fake-embedding.adapter.js';
+import { FakeLlmAdapter } from '../src/modules/ai/adapters/fake-llm.adapter.js';
+import { EMBEDDING_PROVIDER } from '../src/modules/ai/interfaces/embedding-provider.interface.js';
+import { LLM_PROVIDER } from '../src/modules/ai/interfaces/llm-provider.interface.js';
+import { EmbeddingStateService } from '../src/modules/reindex/embedding-state.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { PasswordService } from '../src/modules/auth/password.service.js';
 import { createTestApp } from './test-app.js';
@@ -59,8 +64,34 @@ describe('Advisor chat sessions (e2e)', () => {
     return { userId: body.user.id, token: body.tokens.accessToken };
   }
 
+  // Product-QA fixtures (offline: fake embeddings + scripted LLM, threshold 0
+  // so any retrieved evidence answers). One ACTIVE product with an indexed
+  // chunk, one ACTIVE product without chunks (abstention path).
+  let docProductId = '';
+  let emptyProductId = '';
+  let brandId = '';
+  let categoryId = '';
+  const documentIds: string[] = [];
+
   beforeAll(async () => {
+    const fakeEmbeddings = new FakeEmbeddingAdapter({ dimensions: 1536 });
+    const fakeLlm = new FakeLlmAdapter({ defaultText: 'La batería dura 10 horas [1].' });
     const ctx = await createTestApp([
+      { token: EMBEDDING_PROVIDER, useValue: fakeEmbeddings },
+      {
+        token: EmbeddingStateService,
+        useValue: {
+          getScope: () =>
+            Promise.resolve({
+              model: 'fake-hash-v1',
+              dimensions: 1536,
+              column: 'embedding',
+              cast: 'vector' as const,
+              embed: (texts: string[]) => fakeEmbeddings.embed(texts),
+            }),
+        },
+      },
+      { token: LLM_PROVIDER, useValue: fakeLlm },
       {
         token: APP_CONFIG,
         useValue: {
@@ -68,6 +99,7 @@ describe('Advisor chat sessions (e2e)', () => {
           // Generous rate budget (one shared IP for the whole file), tight
           // history bounds so the limit paths stay deterministic.
           ADVISOR_RATE_LIMIT_MAX: 1000,
+          ADVISOR_ABSTAIN_MIN_SCORE: 0,
           ADVISOR_SESSION_MAX_MESSAGES: 2,
           ADVISOR_MESSAGE_MAX_LENGTH: 50,
         },
@@ -76,6 +108,83 @@ describe('Advisor chat sessions (e2e)', () => {
     app = ctx.app;
     prisma = ctx.module.get(PrismaService);
     const passwords = ctx.module.get(PasswordService);
+    const client = prisma as unknown as PrismaClient;
+
+    const brand = await client.brand.create({
+      data: { name: `E2E Chat Brand ${suffix}`, slug: `e2e-chat-brand-${suffix}` },
+    });
+    const category = await client.category.create({
+      data: { name: `E2E Chat Cat ${suffix}`, slug: `e2e-chat-cat-${suffix}` },
+    });
+    brandId = brand.id;
+    categoryId = category.id;
+    const product = await client.product.create({
+      data: {
+        sku: `E2E-CHAT-HP-${suffix}`,
+        name: `Auriculares Chat ${suffix}`,
+        slug: `e2e-chat-hp-${suffix}`,
+        description: 'Auriculares para el chat.',
+        brandId: brand.id,
+        categoryId: category.id,
+        priceAmount: 100_00,
+        currency: 'USD',
+        status: 'ACTIVE',
+        specs: {},
+      },
+    });
+    await client.inventory.create({ data: { productId: product.id, stock: 5, reserved: 0 } });
+    const emptyProduct = await client.product.create({
+      data: {
+        sku: `E2E-CHAT-EMPTY-${suffix}`,
+        name: `Vacio Chat ${suffix}`,
+        slug: `e2e-chat-empty-${suffix}`,
+        description: 'Sin documentos.',
+        brandId: brand.id,
+        categoryId: category.id,
+        priceAmount: 50_00,
+        currency: 'USD',
+        status: 'ACTIVE',
+        specs: {},
+      },
+    });
+    docProductId = product.id;
+    emptyProductId = emptyProduct.id;
+
+    const content = 'Estos audífonos tienen una batería que dura hasta 10 horas seguidas.';
+    const vectors = await fakeEmbeddings.embed([content]);
+    const vector = vectors.at(0);
+    if (vector === undefined) {
+      throw new Error('Missing fixture vector');
+    }
+    const doc = await client.document.create({
+      data: {
+        productId: product.id,
+        type: 'SPEC_SHEET',
+        title: `E2E chat doc ${suffix}`,
+        locale: 'es',
+        source: `test:chat-${suffix}`,
+        contentHash: `hash-chat-${suffix}`,
+        status: 'READY',
+      },
+    });
+    documentIds.push(doc.id);
+    const chunk = await client.chunk.create({
+      data: {
+        documentId: doc.id,
+        productId: product.id,
+        ord: 0,
+        content,
+        locale: 'es',
+        metadata: { docType: 'SPEC_SHEET' },
+        embeddingModel: 'fake-hash-v1',
+        embeddingDim: 1536,
+      },
+    });
+    await client.$executeRaw`
+      UPDATE "chunks"
+      SET "embedding" = ${`[${vector.join(',')}]`}::vector
+      WHERE "id" = ${chunk.id}::uuid
+    `;
 
     const adminEmail = `e2e-chat-admin-${suffix}@example.com`;
     const admin = await prisma.user.create({
@@ -102,6 +211,23 @@ describe('Advisor chat sessions (e2e)', () => {
     if (createdSessionIds.length > 0) {
       await client.chatMessage.deleteMany({ where: { sessionId: { in: createdSessionIds } } });
       await client.chatSession.deleteMany({ where: { id: { in: createdSessionIds } } });
+    }
+    if (docProductId !== '' && emptyProductId !== '') {
+      await client.unansweredQuery.deleteMany({
+        where: { productId: { in: [docProductId, emptyProductId] } },
+      });
+    }
+    if (documentIds.length > 0) {
+      await client.document.deleteMany({ where: { id: { in: documentIds } } });
+    }
+    if (docProductId !== '' && emptyProductId !== '') {
+      await client.product.deleteMany({ where: { id: { in: [docProductId, emptyProductId] } } });
+    }
+    if (brandId !== '') {
+      await client.brand.deleteMany({ where: { id: brandId } });
+    }
+    if (categoryId !== '') {
+      await client.category.deleteMany({ where: { id: categoryId } });
     }
     if (createdUserIds.length > 0) {
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
@@ -353,5 +479,143 @@ describe('Advisor chat sessions (e2e)', () => {
       .get(`/api/v1/advisor/sessions/${oldUser.id}`)
       .set('Authorization', `Bearer ${tokenA}`)
       .expect(200);
+  });
+
+  it('records answered product-QA turns in the owned session', async () => {
+    const server = app.getHttpServer();
+    const authA = (req: request.Test) => req.set('Authorization', `Bearer ${tokenA}`);
+    const question = '¿Cuánto dura la batería?';
+
+    const created = await authA(request(server).post('/api/v1/advisor/sessions')).expect(201);
+    const session = created.body as SessionBody;
+    createdSessionIds.push(session.id);
+
+    const res = await authA(
+      request(server)
+        .post('/api/v1/advisor/product-qa')
+        .send({ productId: docProductId, question, locale: 'es', sessionId: session.id }),
+    ).expect(200);
+    const body = res.body as { answer: string; abstained: boolean; citations: { n: number }[] };
+    expect(body.abstained).toBe(false);
+    expect(body.citations).toHaveLength(1);
+
+    const history = await authA(
+      request(server).get(`/api/v1/advisor/sessions/${session.id}`),
+    ).expect(200);
+    const historyBody = history.body as HistoryBody;
+    expect(historyBody.messageCount).toBe(2);
+    expect(historyBody.messages.map((message) => message.role)).toEqual(['USER', 'ASSISTANT']);
+    expect(historyBody.messages[0]).toMatchObject({ role: 'USER', content: question });
+    expect(historyBody.messages[1]).toMatchObject({
+      role: 'ASSISTANT',
+      content: body.answer,
+      citations: body.citations,
+    });
+  });
+
+  it('rejects product-QA on a foreign session without answering or recording', async () => {
+    const server = app.getHttpServer();
+    const client = prisma as unknown as PrismaClient;
+    const authA = (req: request.Test) => req.set('Authorization', `Bearer ${tokenA}`);
+    const authB = (req: request.Test) => req.set('Authorization', `Bearer ${tokenB}`);
+
+    const created = await authA(request(server).post('/api/v1/advisor/sessions')).expect(201);
+    const session = created.body as SessionBody;
+    createdSessionIds.push(session.id);
+
+    await authB(
+      request(server).post('/api/v1/advisor/product-qa').send({
+        productId: docProductId,
+        question: '¿Cuánto dura la batería?',
+        sessionId: session.id,
+      }),
+    ).expect(404);
+
+    // Nothing was recorded: the session is still empty and no abstention row exists.
+    const history = await authA(
+      request(server).get(`/api/v1/advisor/sessions/${session.id}`),
+    ).expect(200);
+    expect((history.body as HistoryBody).messageCount).toBe(0);
+    const rows = await client.unansweredQuery.findMany({ where: { sessionId: session.id } });
+    expect(rows).toEqual([]);
+  });
+
+  it('records the user turn and session id on abstentions', async () => {
+    const server = app.getHttpServer();
+    const client = prisma as unknown as PrismaClient;
+    const authA = (req: request.Test) => req.set('Authorization', `Bearer ${tokenA}`);
+    const question = '¿Este producto sin docs tiene bluetooth?';
+
+    const created = await authA(request(server).post('/api/v1/advisor/sessions')).expect(201);
+    const session = created.body as SessionBody;
+    createdSessionIds.push(session.id);
+
+    const res = await authA(
+      request(server)
+        .post('/api/v1/advisor/product-qa')
+        .send({ productId: emptyProductId, question, locale: 'es', sessionId: session.id }),
+    ).expect(200);
+    expect((res.body as { abstained: boolean }).abstained).toBe(true);
+
+    const history = await authA(
+      request(server).get(`/api/v1/advisor/sessions/${session.id}`),
+    ).expect(200);
+    const historyBody = history.body as HistoryBody;
+    expect(historyBody.messageCount).toBe(1);
+    expect(historyBody.messages[0]).toMatchObject({ role: 'USER', content: question });
+
+    const rows = await client.unansweredQuery.findMany({ where: { sessionId: session.id } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ query: question, productId: emptyProductId });
+  });
+
+  it('keeps abstentions without a session linked to no session', async () => {
+    const server = app.getHttpServer();
+    const client = prisma as unknown as PrismaClient;
+    const authA = (req: request.Test) => req.set('Authorization', `Bearer ${tokenA}`);
+    const question = `Sin sesión ${suffix}`;
+
+    await authA(
+      request(server)
+        .post('/api/v1/advisor/product-qa')
+        .send({ productId: emptyProductId, question }),
+    ).expect(200);
+
+    const rows = await client.unansweredQuery.findMany({ where: { query: question } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.sessionId).toBeNull();
+  });
+
+  it('rejects product-QA once the session history is full', async () => {
+    const server = app.getHttpServer();
+    const authA = (req: request.Test) => req.set('Authorization', `Bearer ${tokenA}`);
+
+    // This suite caps sessions at 2 messages: one answered turn fills it.
+    const created = await authA(request(server).post('/api/v1/advisor/sessions')).expect(201);
+    const session = created.body as SessionBody;
+    createdSessionIds.push(session.id);
+    await authA(
+      request(server)
+        .post('/api/v1/advisor/product-qa')
+        .send({
+          productId: docProductId,
+          question: '¿Cuánto dura la batería?',
+          sessionId: session.id,
+        }),
+    ).expect(200);
+
+    await authA(
+      request(server)
+        .post('/api/v1/advisor/product-qa')
+        .send({ productId: docProductId, question: '¿Otra pregunta?', sessionId: session.id }),
+    ).expect(400);
+  });
+
+  it('validates the sessionId shape on product-QA', async () => {
+    const server = app.getHttpServer();
+    await request(server)
+      .post('/api/v1/advisor/product-qa')
+      .send({ productId: docProductId, question: '¿Cuánto dura la batería?', sessionId: 'no-uuid' })
+      .expect(400);
   });
 });

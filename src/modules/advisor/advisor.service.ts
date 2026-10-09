@@ -20,6 +20,7 @@ import { InventoryService } from '../inventory/inventory.service.js';
 import { RetrievalService, type RetrievalHit } from '../retrieval/retrieval.service.js';
 import type { FeedbackInput, ProductQaInput } from './advisor.schemas.js';
 import { buildCitations } from './citations.js';
+import { ChatSessionsService, type ChatSessionOwner } from './chat-sessions.service.js';
 import type { AdvisorFeedbackResponseDto, ProductQaResponseDto } from './dto/advisor.dto.js';
 import {
   buildProductQaUserMessage,
@@ -38,13 +39,15 @@ type AdvisorProductRow = Prisma.ProductGetPayload<{ include: { prices: true } }>
  * Product-QA advisor (see ADR 0025): answers questions about ONE product
  * using only retrieved evidence, with citations and abstention.
  *
- * Flow: ACTIVE product check → hybrid retrieval (product-scoped + general
- * product-less chunks, merged) → abstain below `ADVISOR_ABSTAIN_MIN_SCORE`
- * WITHOUT calling the LLM (recording `unanswered_queries`) → prompt with
- * numbered chunks + SQL-hydrated PRODUCT FACTS → `LlmProvider.generate` →
- * invented `[n]` citations discarded. Price, stock, specs and warranty
- * never come from the LLM; no personal data is ever sent to it, and the
- * full prompt is never logged.
+ * Flow: ACTIVE product check → owned-session check when `sessionId` is set
+ * (cross-user ids 404 before any retrieval or LLM cost) → hybrid retrieval
+ * (product-scoped + general product-less chunks, merged) → abstain below
+ * `ADVISOR_ABSTAIN_MIN_SCORE` WITHOUT calling the LLM (recording
+ * `unanswered_queries` with the session id) → prompt with numbered chunks +
+ * SQL-hydrated PRODUCT FACTS → `LlmProvider.generate` → invented `[n]`
+ * citations discarded → USER + ASSISTANT turns appended to the session.
+ * Price, stock, specs and warranty never come from the LLM; no personal data
+ * is ever sent to it, and the full prompt is never logged.
  */
 @Injectable()
 export class AdvisorService {
@@ -56,14 +59,26 @@ export class AdvisorService {
     private readonly retrieval: RetrievalService,
     @Inject(LLM_PROVIDER) private readonly llm: LlmProvider,
     private readonly inventory: InventoryService,
+    private readonly chatSessions: ChatSessionsService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {
     // Fail fast at boot when the versioned prompt is missing.
     this.systemTemplate = loadProductQaSystemPrompt();
   }
 
-  async answerProductQuestion(input: ProductQaInput): Promise<ProductQaResponseDto> {
+  /**
+   * Answers one product question, optionally recording the turn in an owned
+   * chat session (see ADR 0030). `owner` identifies the caller (user or guest
+   * `sid`) exactly like the sessions endpoints do.
+   */
+  async answerProductQuestion(
+    input: ProductQaInput,
+    owner: ChatSessionOwner,
+  ): Promise<ProductQaResponseDto> {
     const product = await this.findActiveProduct(input.productId);
+    if (input.sessionId !== undefined) {
+      await this.chatSessions.assertSessionOwned(input.sessionId, owner);
+    }
     const locale = resolveLocale(
       input.locale,
       this.config.SUPPORTED_LOCALES,
@@ -75,8 +90,14 @@ export class AdvisorService {
     if (hits.length === 0 || best < this.config.ADVISOR_ABSTAIN_MIN_SCORE) {
       const reason = hits.length === 0 ? 'no_evidence' : 'below_threshold';
       await this.prisma.unansweredQuery.create({
-        data: { query: input.question, productId: product.id, reason },
+        data: {
+          query: input.question,
+          productId: product.id,
+          sessionId: input.sessionId ?? null,
+          reason,
+        },
       });
+      await this.recordUserTurn(input.sessionId, owner, input.question);
       // Never log the question text: it may contain personal data.
       this.logger.debug(
         `advisor product-qa: abstained reason=${reason} hits=${String(hits.length)}`,
@@ -107,11 +128,41 @@ export class AdvisorService {
 
     const citations = buildCitations(result.text, hits);
 
+    await this.recordUserTurn(input.sessionId, owner, input.question);
+    if (input.sessionId !== undefined) {
+      // Product cards stay empty here: Fase 4 fills them with SQL-hydrated
+      // recommendations, while product-QA cites document evidence only.
+      await this.chatSessions.addMessage(input.sessionId, owner, {
+        role: 'ASSISTANT',
+        content: result.text,
+        citations,
+        products: [],
+      });
+    }
+
     // Metadata only: never the prompt, the question or the answer.
     this.logger.debug(
       `advisor product-qa: answered hits=${String(hits.length)} citations=${String(citations.length)} abstained=false provider=${this.llm.providerName} latencyMs=${String(result.latencyMs)}`,
     );
     return { answer: result.text, citations, abstained: false };
+  }
+
+  /**
+   * Appends the user question to the session when the caller passed one.
+   * History limits (`ADVISOR_SESSION_MAX_MESSAGES`, `ADVISOR_MESSAGE_MAX_LENGTH`)
+   * apply here exactly like `POST /sessions/:id/messages`: a full session
+   * rejects the QA call with a 400 so the UI can rotate the session instead
+   * of silently dropping history.
+   */
+  private async recordUserTurn(
+    sessionId: string | undefined,
+    owner: ChatSessionOwner,
+    question: string,
+  ): Promise<void> {
+    if (sessionId === undefined) {
+      return;
+    }
+    await this.chatSessions.addMessage(sessionId, owner, { role: 'USER', content: question });
   }
 
   /**

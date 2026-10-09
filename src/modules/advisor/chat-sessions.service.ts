@@ -140,6 +140,15 @@ export class ChatSessionsService {
   }
 
   /**
+   * Verifies the caller owns the session without returning it. Used by
+   * writers (e.g. product-QA) that must reject cross-user ids BEFORE any
+   * costly work (retrieval, LLM calls). Same 404 semantics as the readers.
+   */
+  async assertSessionOwned(sessionId: string, owner: ChatSessionOwner): Promise<void> {
+    await this.findOwnedSessionOrThrow(sessionId, owner);
+  }
+
+  /**
    * Loads the session and verifies the caller owns it. Unknown ids, user
    * sessions presented with a guest identity (and vice versa), and ids owned
    * by another user all throw the same 404 — ownership is never disclosed.

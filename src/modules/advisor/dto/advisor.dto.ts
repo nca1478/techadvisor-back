@@ -40,6 +40,13 @@ export class ProductQaRequestDto {
     description: 'BCP 47 answer locale; defaults server-side.',
   })
   locale?: string;
+
+  @ApiPropertyOptional({
+    example: 'session-id',
+    description:
+      'Owned chat session to record this turn in (question + answer with citations); cross-user ids 404.',
+  })
+  sessionId?: string;
 }
 
 export class AdvisorFeedbackRequestDto {

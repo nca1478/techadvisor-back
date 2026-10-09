@@ -23,6 +23,13 @@ export const productQaBodySchema = z.object({
     .trim()
     .regex(LOCALE_PATTERN, { error: 'locale must be BCP 47 (e.g. en, es)' })
     .optional(),
+  /**
+   * Optional chat session to record this turn in (see ADR 0030). When set,
+   * the session must be owned by the caller (user or guest `sid`); otherwise
+   * the request 404s exactly like an unknown session, before any retrieval
+   * or LLM call.
+   */
+  sessionId: z.uuid({ error: 'sessionId must be a valid UUID' }).optional(),
 });
 
 export type ProductQaInput = z.output<typeof productQaBodySchema>;
