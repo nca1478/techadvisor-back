@@ -103,6 +103,26 @@ const embeddingApiKeySchema = z.preprocess(
   z.string().min(1, { error: 'EMBEDDING_API_KEY must be a non-empty key' }).optional(),
 );
 
+const llmBaseUrlSchema = z.preprocess(
+  emptyToUndefined,
+  z
+    .url({ error: 'LLM_BASE_URL must be a valid URL (e.g. https://api.openai.com/v1)' })
+    .refine((url) => url.startsWith('http://') || url.startsWith('https://'), {
+      error: 'LLM_BASE_URL must use the http:// or https:// scheme',
+    })
+    .optional(),
+);
+
+const llmModelSchema = z.preprocess(
+  emptyToUndefined,
+  z.string().min(1, { error: 'LLM_MODEL must be a non-empty model id' }).optional(),
+);
+
+const llmApiKeySchema = z.preprocess(
+  emptyToUndefined,
+  z.string().min(1, { error: 'LLM_API_KEY must be a non-empty key' }).optional(),
+);
+
 const envSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -174,6 +194,21 @@ const envSchema = z
     EMBEDDING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
     EMBEDDING_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60000).default(500),
     EMBEDDING_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(300000).default(8000),
+    LLM_PROVIDER: z
+      .enum(['fake', 'openai-compatible', 'anthropic'], {
+        error: 'LLM_PROVIDER must be one of: fake, openai-compatible, anthropic',
+      })
+      .default('fake'),
+    LLM_MODEL: llmModelSchema,
+    LLM_API_KEY: llmApiKeySchema,
+    // Required for `openai-compatible`; optional override for `anthropic`
+    // (the SDK defaults to https://api.anthropic.com) and unused for `fake`.
+    LLM_BASE_URL: llmBaseUrlSchema,
+    LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+    LLM_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    LLM_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60000).default(500),
+    LLM_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(300000).default(8000),
+    LLM_MAX_TOKENS: z.coerce.number().int().min(1).max(128000).default(1024),
     // Ingestion queue (BullMQ, see ADR 0019). Attempts bound the retries of
     // one job with exponential backoff starting at INGESTION_BACKOFF_MS;
     // INGESTION_CONCURRENCY sizes the standalone worker only.
@@ -209,7 +244,15 @@ const envSchema = z
         'EMBEDDING_BASE_URL and EMBEDDING_MODEL are required when EMBEDDING_PROVIDER is openai-compatible or nvidia',
       path: ['EMBEDDING_BASE_URL'],
     },
-  );
+  )
+  .refine((env) => env.LLM_PROVIDER === 'fake' || env.LLM_MODEL !== undefined, {
+    error: 'LLM_MODEL is required when LLM_PROVIDER is openai-compatible or anthropic',
+    path: ['LLM_MODEL'],
+  })
+  .refine((env) => env.LLM_PROVIDER !== 'openai-compatible' || env.LLM_BASE_URL !== undefined, {
+    error: 'LLM_BASE_URL is required when LLM_PROVIDER is openai-compatible',
+    path: ['LLM_BASE_URL'],
+  });
 
 export type AppConfig = z.output<typeof envSchema>;
 

@@ -233,4 +233,84 @@ describe('parseEnv', () => {
     // pgvector indexed caps: 2000 (`vector`), 4000 (`halfvec`, ADR 0018).
     expect(() => parseEnv({ ...VALID_ENV, EMBEDDING_DIM: '5000' })).toThrow(/EMBEDDING_DIM/);
   });
+
+  it('defaults to the fake LLM provider with tunable retry knobs', () => {
+    const config = parseEnv({ ...VALID_ENV });
+
+    expect(config.LLM_PROVIDER).toBe('fake');
+    expect(config.LLM_MODEL).toBeUndefined();
+    expect(config.LLM_API_KEY).toBeUndefined();
+    expect(config.LLM_BASE_URL).toBeUndefined();
+    expect(config.LLM_TIMEOUT_MS).toBe(60000);
+    expect(config.LLM_MAX_ATTEMPTS).toBe(3);
+    expect(config.LLM_RETRY_BASE_DELAY_MS).toBe(500);
+    expect(config.LLM_RETRY_MAX_DELAY_MS).toBe(8000);
+    expect(config.LLM_MAX_TOKENS).toBe(1024);
+  });
+
+  it('accepts an openai-compatible LLM configuration', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      LLM_PROVIDER: 'openai-compatible',
+      LLM_MODEL: 'gpt-4o-mini',
+      LLM_API_KEY: 'sk-test',
+      LLM_BASE_URL: 'https://api.openai.com/v1',
+    });
+
+    expect(config.LLM_PROVIDER).toBe('openai-compatible');
+    expect(config.LLM_MODEL).toBe('gpt-4o-mini');
+    expect(config.LLM_BASE_URL).toBe('https://api.openai.com/v1');
+  });
+
+  it('accepts an anthropic LLM configuration without a base url (ADR 0024)', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      LLM_PROVIDER: 'anthropic',
+      LLM_MODEL: 'claude-haiku-4-5',
+      LLM_API_KEY: 'sk-ant-test',
+    });
+
+    expect(config.LLM_PROVIDER).toBe('anthropic');
+    expect(config.LLM_MODEL).toBe('claude-haiku-4-5');
+    expect(config.LLM_BASE_URL).toBeUndefined();
+  });
+
+  it('requires a model for non-fake LLM providers and a base url for openai-compatible', () => {
+    expect(() => parseEnv({ ...VALID_ENV, LLM_PROVIDER: 'anthropic' })).toThrow(/LLM_MODEL/);
+    expect(() => parseEnv({ ...VALID_ENV, LLM_PROVIDER: 'openai-compatible' })).toThrow(
+      /LLM_MODEL/,
+    );
+    expect(() =>
+      parseEnv({
+        ...VALID_ENV,
+        LLM_PROVIDER: 'openai-compatible',
+        LLM_MODEL: 'gpt-4o-mini',
+      }),
+    ).toThrow(/LLM_BASE_URL/);
+  });
+
+  it('treats empty LLM key/url/model as unset', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      LLM_MODEL: '',
+      LLM_API_KEY: '   ',
+      LLM_BASE_URL: '',
+    });
+
+    expect(config.LLM_MODEL).toBeUndefined();
+    expect(config.LLM_API_KEY).toBeUndefined();
+    expect(config.LLM_BASE_URL).toBeUndefined();
+  });
+
+  it('rejects unknown LLM providers and bad urls', () => {
+    expect(() => parseEnv({ ...VALID_ENV, LLM_PROVIDER: 'mystery' })).toThrow(/LLM_PROVIDER/);
+    expect(() =>
+      parseEnv({
+        ...VALID_ENV,
+        LLM_PROVIDER: 'openai-compatible',
+        LLM_MODEL: 'm',
+        LLM_BASE_URL: 'not-a-url',
+      }),
+    ).toThrow(/LLM_BASE_URL/);
+  });
 });
