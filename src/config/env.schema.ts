@@ -156,6 +156,15 @@ const envSchema = z
     // 0.016 answers when at least one modality ranks evidence first and
     // abstains otherwise (see ADR 0025).
     ADVISOR_ABSTAIN_MIN_SCORE: z.coerce.number().min(0).max(10).default(0.016),
+    // Chat-session history bounds (see ADR 0029). The per-message cap is
+    // enforced at the API edge in `ChatSessionsService` (the zod body schema
+    // only requires non-empty content so the limit stays configurable without
+    // code changes); the per-session cap bounds history growth and LLM
+    // context cost in later phases. Anonymous sessions older than the
+    // retention window are purged by the cleanup job.
+    ADVISOR_SESSION_MAX_MESSAGES: z.coerce.number().int().min(1).max(10000).default(100),
+    ADVISOR_MESSAGE_MAX_LENGTH: z.coerce.number().int().min(1).max(20000).default(2000),
+    ADVISOR_ANON_SESSION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     BASE_CURRENCY: isoCurrencyCode('BASE_CURRENCY'),
     SUPPORTED_CURRENCIES: supportedCurrenciesSchema,

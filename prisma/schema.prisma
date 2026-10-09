@@ -32,6 +32,7 @@ model User {
   refreshTokens RefreshToken[]
   carts        Cart[]
   orders       Order[]
+  chatSessions ChatSession[]
 
   @@map("users")
 }
@@ -586,4 +587,57 @@ model AdvisorFeedback {
   @@index([productId])
   @@index([createdAt])
   @@map("advisor_feedback")
+}
+
+// --- Advisor chat sessions (Fase 4, persistencia del historial) ----------------
+// Conversation sessions for the buying advisor. A session belongs either to an
+// authenticated user (`userId`, FK CASCADE) or to an anonymous guest
+// (`anonSessionId`, the signed `sid` guest session id from ADR 0010 — never a
+// raw cookie value, only the verified uuid part). Exactly one of the two is
+// set (enforced by CHECKs in the migration). Sessions are strictly private:
+// every read/write re-checks ownership and cross-user access 404s exactly
+// like an unknown id. Messages are append-only; per-session count and
+// per-message length caps come from config (see ADR 0029). Anonymous sessions
+// older than `ADVISOR_ANON_SESSION_RETENTION_DAYS` are purged by the cleanup
+// job. No personal data is stored deliberately: `content` holds only what the
+// client sent, and PII redaction (if needed) arrives in a later task.
+
+/** Author of one chat message. */
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+}
+
+model ChatSession {
+  id String @id @default(uuid()) @db.Uuid
+  userId String? @map("user_id") @db.Uuid
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /** Verified guest `sid` session id (uuid); NULL for user sessions. */
+  anonSessionId String? @map("anon_session_id")
+  messages ChatMessage[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([anonSessionId])
+  @@index([createdAt])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id String @id @default(uuid()) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role ChatMessageRole
+  /** Message text (max length enforced at the API edge, never logged). */
+  content String @db.Text
+  /** Validated `[n]` citations resolved against delivered chunks (else []). */
+  citations Json @default("[]") @db.JsonB
+  /** Product snapshot cards shown with the answer (ids + display data). */
+  products Json @default("[]") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
 }
