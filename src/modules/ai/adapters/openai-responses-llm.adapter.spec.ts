@@ -152,6 +152,55 @@ describe('OpenAiResponsesLlmAdapter', () => {
     expect(parts).toEqual(['hi']);
   });
 
+  it('sends a stable x-opencode-session per adapter instance', async () => {
+    const seen: { headers: HeadersInit | undefined }[] = [];
+    const adapter = new OpenAiResponsesLlmAdapter(BASE_CONFIG, (_input, init) => {
+      seen.push({ headers: init?.headers });
+      return Promise.resolve(jsonResponse(200, responsesPayload('hi')));
+    });
+
+    await adapter.generate(REQ);
+    await adapter.generate(REQ);
+
+    const sessions = seen.map((call) => new Headers(call.headers).get('x-opencode-session'));
+    expect(sessions).toHaveLength(2);
+    expect(typeof sessions[0]).toBe('string');
+    expect(sessions[0]?.length).toBeGreaterThan(0);
+    expect(sessions[0]).toBe(sessions[1]);
+  });
+
+  it('honors an explicit session id (tests) instead of generating one', async () => {
+    let header: string | null = null;
+    const adapter = new OpenAiResponsesLlmAdapter(
+      { ...BASE_CONFIG, sessionId: 'test-session' },
+      (_input, init) => {
+        header = new Headers(init?.headers).get('x-opencode-session');
+        return Promise.resolve(jsonResponse(200, responsesPayload('hi')));
+      },
+    );
+
+    await adapter.generate(REQ);
+
+    expect(header).toBe('test-session');
+  });
+
+  it('sends reasoning effort only when configured', async () => {
+    const bodies: unknown[] = [];
+    const capture = (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(init?.body as string));
+      return Promise.resolve(jsonResponse(200, responsesPayload('hi')));
+    };
+
+    await new OpenAiResponsesLlmAdapter(BASE_CONFIG, capture).generate(REQ);
+    expect(bodies[0]).not.toHaveProperty('reasoning');
+
+    await new OpenAiResponsesLlmAdapter(
+      { ...BASE_CONFIG, reasoningEffort: 'minimal' },
+      capture,
+    ).generate(REQ);
+    expect(bodies[1]).toMatchObject({ reasoning: { effort: 'minimal' } });
+  });
+
   it('maps 401 to auth and 429 to rate_limited (with retry-after)', async () => {
     const auth = new OpenAiResponsesLlmAdapter(BASE_CONFIG, () =>
       Promise.resolve(jsonResponse(401, { error: 'bad key' })),

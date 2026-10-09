@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AiConfigError, AiProviderError, AiRateLimitError } from '../ai-provider.error.js';
 import { parseRetryAfterMs, withRetry } from '../common/retry.js';
 import type {
@@ -30,6 +31,19 @@ export interface OpenAiResponsesLlmConfig {
   baseDelayMs: number;
   maxDelayMs: number;
   defaultMaxTokens: number;
+  /**
+   * Stable session id sent as `x-opencode-session` (required by some
+   * gateways, e.g. opencode-go Zen, for routing and prompt caching).
+   * Defaults to one UUID per adapter instance (stable for the process
+   * lifetime); override only in tests. Never personal data.
+   */
+  sessionId?: string;
+  /**
+   * Reasoning effort for thinking models (`minimal`..`high`). Sent only
+   * when set — non-reasoning models reject the parameter. Keep unset to
+   * use the provider default.
+   */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
 }
 
 export type ResponsesFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -93,6 +107,8 @@ export class OpenAiResponsesLlmAdapter implements LlmProvider {
   private readonly baseDelayMs: number;
   private readonly maxDelayMs: number;
   private readonly defaultMaxTokens: number;
+  private readonly sessionId: string;
+  private readonly reasoningEffort: 'minimal' | 'low' | 'medium' | 'high' | undefined;
   private readonly fetchImpl: ResponsesFetch;
 
   constructor(config: OpenAiResponsesLlmConfig, fetchImpl?: ResponsesFetch) {
@@ -121,6 +137,11 @@ export class OpenAiResponsesLlmAdapter implements LlmProvider {
     this.baseDelayMs = config.baseDelayMs;
     this.maxDelayMs = config.maxDelayMs;
     this.defaultMaxTokens = config.defaultMaxTokens;
+    this.sessionId =
+      config.sessionId !== undefined && config.sessionId.trim() !== ''
+        ? config.sessionId
+        : randomUUID();
+    this.reasoningEffort = config.reasoningEffort;
     this.fetchImpl = fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
   }
 
@@ -161,6 +182,10 @@ export class OpenAiResponsesLlmAdapter implements LlmProvider {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
+          // Stable per-instance id: required by session-aware gateways
+          // (opencode-go Zen rejects requests without it) and improves
+          // routing affinity and prompt caching server-side.
+          'x-opencode-session': this.sessionId,
           ...(this.apiKey !== undefined && this.apiKey !== ''
             ? { authorization: `Bearer ${this.apiKey}` }
             : {}),
@@ -175,6 +200,9 @@ export class OpenAiResponsesLlmAdapter implements LlmProvider {
           ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
           // Covers visible tokens AND reasoning tokens on thinking models.
           max_output_tokens: req.maxTokens ?? this.defaultMaxTokens,
+          ...(this.reasoningEffort !== undefined
+            ? { reasoning: { effort: this.reasoningEffort } }
+            : {}),
           stream,
         }),
         signal: controller.signal,

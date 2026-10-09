@@ -140,6 +140,7 @@ export function createLlmProvider(
           baseDelayMs: config.LLM_RETRY_BASE_DELAY_MS,
           maxDelayMs: config.LLM_RETRY_MAX_DELAY_MS,
           defaultMaxTokens: config.LLM_MAX_TOKENS,
+          reasoningEffort: config.LLM_REASONING_EFFORT,
         },
         fetchImpl,
       );

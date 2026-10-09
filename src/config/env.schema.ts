@@ -220,6 +220,11 @@ const envSchema = z
     LLM_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60000).default(500),
     LLM_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(300000).default(8000),
     LLM_MAX_TOKENS: z.coerce.number().int().min(1).max(128000).default(1024),
+    // Reasoning effort for thinking models via `openai-responses`
+    // (minimal|low|medium|high). Sent as `reasoning.effort` only when set;
+    // unset keeps the provider default. Non-reasoning models reject the
+    // parameter, so leave it empty unless the model thinks.
+    LLM_REASONING_EFFORT: z.enum(['minimal', 'low', 'medium', 'high']).optional(),
     // Ingestion queue (BullMQ, see ADR 0019). Attempts bound the retries of
     // one job with exponential backoff starting at INGESTION_BACKOFF_MS;
     // INGESTION_CONCURRENCY sizes the standalone worker only.
