@@ -27,6 +27,13 @@ import { AuthService } from './auth.service.js';
           ttl: config.SEARCH_RATE_LIMIT_TTL_MS,
           limit: config.SEARCH_RATE_LIMIT_MAX,
         },
+        // Named throttler consumed by the product-QA advisor (which skips
+        // the `auth` and `search` throttlers). Same single-forRoot rule.
+        {
+          name: 'advisor',
+          ttl: config.ADVISOR_RATE_LIMIT_TTL_MS,
+          limit: config.ADVISOR_RATE_LIMIT_MAX,
+        },
       ],
     }),
   ],

@@ -146,6 +146,16 @@ const envSchema = z
     // costs an embedding call + hybrid SQL, see ADR 0022).
     SEARCH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
     SEARCH_RATE_LIMIT_TTL_MS: z.coerce.number().int().positive().default(60000),
+    // Product-QA advisor: every hit costs retrieval (two hybrid searches)
+    // plus one LLM call, so the default sits below search (see ADR 0025).
+    ADVISOR_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+    ADVISOR_RATE_LIMIT_TTL_MS: z.coerce.number().int().positive().default(60000),
+    // Minimum fused RRF score of the best evidence chunk to call the LLM.
+    // RRF scores live on a small scale (one branch, rank 1, k=60 scores
+    // 1/61 ≈ 0.0164; both branches at rank 1 score ≈ 0.0328), so the default
+    // 0.016 answers when at least one modality ranks evidence first and
+    // abstains otherwise (see ADR 0025).
+    ADVISOR_ABSTAIN_MIN_SCORE: z.coerce.number().min(0).max(10).default(0.016),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     BASE_CURRENCY: isoCurrencyCode('BASE_CURRENCY'),
     SUPPORTED_CURRENCIES: supportedCurrenciesSchema,

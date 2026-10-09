@@ -17,6 +17,7 @@ import { IngestionModule } from './modules/ingestion/ingestion.module.js';
 import { ReindexModule } from './modules/reindex/reindex.module.js';
 import { RetrievalModule } from './modules/retrieval/retrieval.module.js';
 import { SearchModule } from './modules/search/search.module.js';
+import { AdvisorModule } from './modules/advisor/advisor.module.js';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { SearchModule } from './modules/search/search.module.js';
     ReindexModule,
     RetrievalModule,
     SearchModule,
+    AdvisorModule,
   ],
 })
 export class AppModule implements NestModule {

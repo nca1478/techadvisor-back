@@ -133,6 +133,7 @@ model Product {
   translations ProductTranslation[]
   documents   Document[]
   chunks      Chunk[]
+  unansweredQueries UnansweredQuery[]
   inventory   Inventory?
   movements   InventoryMovement[]
   cartItems   CartItem[]
@@ -535,4 +536,28 @@ model ReindexJob {
 
   @@index([status])
   @@map("reindex_jobs")
+}
+
+// --- Advisor (Fase 3) --------------------------------------------------------
+// Questions the product-QA advisor could not answer from retrieved evidence
+// (see ADR 0025). One row per abstention: `query` is the raw user question
+// (max 1000 chars, validated at the API edge), `productId` the asked-about
+// product, `reason` why no answer was given (`no_evidence` when retrieval
+// returned nothing, `below_threshold` when the best hit scored under
+// `ADVISOR_ABSTAIN_MIN_SCORE`). Rows are append-only: never updated or
+// deleted by application code; the admin panel surfaces them (Fase 7).
+
+model UnansweredQuery {
+  id String @id @default(uuid()) @db.Uuid
+  query String @db.Text
+  productId String? @map("product_id") @db.Uuid
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sessionId String? @map("session_id") @db.Uuid
+  reason String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("unanswered_queries")
 }
