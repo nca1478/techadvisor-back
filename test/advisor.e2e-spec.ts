@@ -6,6 +6,8 @@ import { parseEnv } from '../src/config/env.schema.js';
 import { APP_CONFIG } from '../src/config/app-config.module.js';
 import { FakeEmbeddingAdapter } from '../src/modules/ai/adapters/fake-embedding.adapter.js';
 import { FakeLlmAdapter } from '../src/modules/ai/adapters/fake-llm.adapter.js';
+import { AiProviderError } from '../src/modules/ai/ai-provider.error.js';
+import type { LlmGenerateResult } from '../src/modules/ai/interfaces/llm-provider.interface.js';
 import { EMBEDDING_PROVIDER } from '../src/modules/ai/interfaces/embedding-provider.interface.js';
 import { LLM_PROVIDER } from '../src/modules/ai/interfaces/llm-provider.interface.js';
 import { EmbeddingStateService } from '../src/modules/reindex/embedding-state.service.js';
@@ -429,5 +431,53 @@ describe('Advisor rate limiting (e2e)', () => {
     await request(server).post('/api/v1/advisor/product-qa').send(payload).expect(404);
     await request(server).post('/api/v1/advisor/product-qa').send(payload).expect(404);
     await request(server).post('/api/v1/advisor/product-qa').send(payload).expect(429);
+  });
+});
+
+/** LLM stub that fails like a provider outage (e.g. rejected credentials). */
+class RejectingLlmAdapter extends FakeLlmAdapter {
+  constructor(private readonly failure: Error) {
+    super({ defaultText: 'unused' });
+  }
+
+  override generate(): Promise<LlmGenerateResult> {
+    return Promise.reject(this.failure);
+  }
+}
+
+describe('Advisor provider outage (e2e)', () => {
+  const suffix = `c-${String(Date.now())}-${String(Math.floor(Math.random() * 1_000_000))}`;
+  let fixture: Fixture;
+
+  beforeAll(async () => {
+    const fake = new FakeEmbeddingAdapter({ dimensions: DIMENSIONS });
+    const llm = new RejectingLlmAdapter(
+      new AiProviderError('auth', 'Chat provider rejected credentials', 'anthropic'),
+    );
+    fixture = await createFixtures(
+      hermeticOverrides(fake, llm, { ADVISOR_ABSTAIN_MIN_SCORE: 0 }),
+      suffix,
+      llm,
+    );
+  }, 60_000);
+
+  afterAll(async () => {
+    await destroyFixtures(fixture);
+  });
+
+  it('returns a uniform 503 when the LLM provider fails', async () => {
+    const res = await request(fixture.app.getHttpServer())
+      .post('/api/v1/advisor/product-qa')
+      .send({ productId: fixture.productId, question: QUESTION, locale: 'es' })
+      .expect(503);
+
+    // Uniform contract shape so web clients can show a friendly message.
+    expect(res.body).toMatchObject({
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+    });
+    expect(typeof res.body.message).toBe('string');
+    // The provider detail never leaks to the client.
+    expect(JSON.stringify(res.body)).not.toContain('rejected credentials');
   });
 });

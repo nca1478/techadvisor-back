@@ -1,8 +1,15 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  ServiceUnavailableException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '../../config/env.schema.js';
 import type { PrismaService } from '../../prisma/prisma.service.js';
+import { AiProviderError, AiRateLimitError } from '../ai/ai-provider.error.js';
 import { FakeLlmAdapter } from '../ai/adapters/fake-llm.adapter.js';
+import type { LlmGenerateResult } from '../ai/interfaces/llm-provider.interface.js';
 import type { InventoryService } from '../inventory/inventory.service.js';
 import type { RetrievalService, RetrievalHit } from '../retrieval/retrieval.service.js';
 import { abstentionMessage, AdvisorService, mergeEvidence } from './advisor.service.js';
@@ -56,6 +63,7 @@ function buildService(options: {
   generalHits?: RetrievalHit[];
   llmText?: string;
   available?: number;
+  llm?: FakeLlmAdapter;
 }) {
   const searchMock = vi.fn((input: { filters?: { productId?: string } }) =>
     Promise.resolve(
@@ -74,14 +82,27 @@ function buildService(options: {
     },
     unansweredQuery: { create: createMock },
   } as unknown as PrismaService;
-  const llm = new FakeLlmAdapter({
-    defaultText: options.llmText ?? 'La batería dura 10 horas [1].',
-  });
+  const llm =
+    options.llm ??
+    new FakeLlmAdapter({
+      defaultText: options.llmText ?? 'La batería dura 10 horas [1].',
+    });
   const inventory = {
     getAvailable: vi.fn().mockResolvedValue(options.available ?? 5),
   } as unknown as InventoryService;
   const service = new AdvisorService(prisma, retrieval, llm, inventory, CONFIG);
   return { service, searchMock, createMock, llm };
+}
+
+/** Fake LLM that always fails like a real provider outage (auth/5xx). */
+class RejectingLlmAdapter extends FakeLlmAdapter {
+  constructor(private readonly failure: Error) {
+    super({ defaultText: 'unused' });
+  }
+
+  override generate(): Promise<LlmGenerateResult> {
+    return Promise.reject(this.failure);
+  }
 }
 
 /** First user message sent to the fake LLM (empty when never called). */
@@ -248,6 +269,53 @@ describe('AdvisorService (unit, mocked retrieval and database)', () => {
     expect(searchMock).not.toHaveBeenCalled();
     expect(llm.calls).toHaveLength(0);
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('maps provider auth failures to 503 (uniform, retryable by the client)', async () => {
+    const { service } = buildService({
+      productHits: [hit('a', PRODUCT_ID, 0.03)],
+      generalHits: [],
+      llm: new RejectingLlmAdapter(new AiProviderError('auth', 'denied', 'anthropic')),
+    });
+
+    const error = await service
+      .answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' })
+      .catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getStatus()).toBe(503);
+    // The provider message never leaks to the client-facing error.
+    const body = (error as ServiceUnavailableException).getResponse() as Record<string, unknown>;
+    expect(body['message']).toBe('Advisor provider unavailable, try again later');
+  });
+
+  it('maps provider rate limiting to 429', async () => {
+    const { service } = buildService({
+      productHits: [hit('a', PRODUCT_ID, 0.03)],
+      generalHits: [],
+      llm: new RejectingLlmAdapter(new AiRateLimitError('limited', 'anthropic')),
+    });
+
+    const error = await service
+      .answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' })
+      .catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    const body = (error as HttpException).getResponse() as Record<string, unknown>;
+    expect(body['message']).toBe('Advisor provider rate limited, try again later');
+  });
+
+  it('lets unexpected (non-provider) errors bubble as 500s', async () => {
+    const { service } = buildService({
+      productHits: [hit('a', PRODUCT_ID, 0.03)],
+      generalHits: [],
+      llm: new RejectingLlmAdapter(new Error('boom')),
+    });
+
+    await expect(
+      service.answerProductQuestion({ productId: PRODUCT_ID, question: '¿Batería?' }),
+    ).rejects.toThrow('boom');
   });
 
   it('merges product hits with product-less general hits (category/policy docs)', async () => {

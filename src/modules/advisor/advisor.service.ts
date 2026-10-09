@@ -1,8 +1,17 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import { APP_CONFIG } from '../../config/app-config.module.js';
 import type { AppConfig } from '../../config/env.schema.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { AiProviderError, AiRateLimitError } from '../ai/ai-provider.error.js';
 import type { LlmProvider } from '../ai/interfaces/llm-provider.interface.js';
 import { LLM_PROVIDER } from '../ai/interfaces/llm-provider.interface.js';
 import { resolveLocale } from '../catalog/catalog.service.js';
@@ -94,10 +103,8 @@ export class AdvisorService {
       hits,
     });
 
-    const result = await this.llm.generate({
-      system: renderProductQaSystemPrompt(this.systemTemplate, locale),
-      messages: [{ role: 'user', content: userMessage }],
-    });
+    const result = await this.generateAnswer(userMessage, locale);
+
     const citations = buildCitations(result.text, hits);
 
     // Metadata only: never the prompt, the question or the answer.
@@ -105,6 +112,41 @@ export class AdvisorService {
       `advisor product-qa: answered hits=${String(hits.length)} citations=${String(citations.length)} abstained=false provider=${this.llm.providerName} latencyMs=${String(result.latencyMs)}`,
     );
     return { answer: result.text, citations, abstained: false };
+  }
+
+  /**
+   * LLM call with provider-failure mapping (see ADR 0026). Provider outages,
+   * expired keys and timeouts become uniform 503 (429 when the provider
+   * itself rate-limits) so clients can tell "try again later" apart from a
+   * real 500. Only metadata reaches the logs — never prompts or keys.
+   */
+  private async generateAnswer(
+    userMessage: string,
+    locale: string,
+  ): Promise<{ text: string; latencyMs: number }> {
+    try {
+      return await this.llm.generate({
+        system: renderProductQaSystemPrompt(this.systemTemplate, locale),
+        messages: [{ role: 'user', content: userMessage }],
+      });
+    } catch (error) {
+      if (error instanceof AiRateLimitError) {
+        this.logger.warn(`advisor product-qa: provider rate limited provider=${error.provider}`);
+        throw new HttpException(
+          { message: 'Advisor provider rate limited, try again later' },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      if (error instanceof AiProviderError) {
+        this.logger.warn(
+          `advisor product-qa: provider failed code=${error.code} provider=${error.provider}`,
+        );
+        throw new ServiceUnavailableException({
+          message: 'Advisor provider unavailable, try again later',
+        });
+      }
+      throw error;
+    }
   }
 
   /**
