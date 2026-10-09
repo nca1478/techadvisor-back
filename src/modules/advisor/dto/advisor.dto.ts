@@ -42,6 +42,34 @@ export class ProductQaRequestDto {
   locale?: string;
 }
 
+export class AdvisorFeedbackRequestDto {
+  @ApiPropertyOptional({
+    example: 'product-id',
+    description: 'Asked-about product id, when the vote comes from a product page.',
+  })
+  productId?: string;
+
+  @ApiProperty({ example: '¿Cuánto dura la batería?', description: 'Question (1..1000 chars).' })
+  question!: string;
+
+  @ApiProperty({
+    example: 'La batería dura hasta 10 horas [1].',
+    description: 'Answer the vote refers to (1..20000 chars).',
+  })
+  answer!: string;
+
+  @ApiProperty({ example: false, description: 'Whether the voted answer was an abstention.' })
+  abstained!: boolean;
+
+  @ApiProperty({ enum: ['up', 'down'], example: 'up', description: 'Vote direction.' })
+  value!: 'up' | 'down';
+}
+
+export class AdvisorFeedbackResponseDto {
+  @ApiProperty({ example: true, description: 'True when the vote was recorded.' })
+  ok!: boolean;
+}
+
 export class ProductQaResponseDto {
   @ApiProperty({
     example: 'La batería dura hasta 10 horas [1].',

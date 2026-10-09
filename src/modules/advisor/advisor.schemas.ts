@@ -26,3 +26,29 @@ export const productQaBodySchema = z.object({
 });
 
 export type ProductQaInput = z.output<typeof productQaBodySchema>;
+
+/**
+ * Body for `POST /advisor/feedback` (Fase 3, P3.3 stub).
+ *
+ * Same bounds as the widget that sends it: `question` capped at 1000 chars
+ * like product-QA, `answer` capped at 20000 chars to bound row size (LLM
+ * answers are concise by prompt contract), `productId` optional so future
+ * surfaces without a product context stay forward-compatible.
+ */
+export const feedbackBodySchema = z.object({
+  productId: z.uuid({ error: 'productId must be a valid UUID' }).optional(),
+  question: z
+    .string({ error: 'question is required' })
+    .trim()
+    .min(1, { error: 'question must not be empty' })
+    .max(1000, { error: 'question must be at most 1000 characters long' }),
+  answer: z
+    .string({ error: 'answer is required' })
+    .trim()
+    .min(1, { error: 'answer must not be empty' })
+    .max(20000, { error: 'answer must be at most 20000 characters long' }),
+  abstained: z.boolean({ error: 'abstained is required' }),
+  value: z.enum(['up', 'down'], { error: "value must be 'up' or 'down'" }),
+});
+
+export type FeedbackInput = z.output<typeof feedbackBodySchema>;

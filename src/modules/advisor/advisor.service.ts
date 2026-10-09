@@ -18,9 +18,9 @@ import { resolveLocale } from '../catalog/catalog.service.js';
 import { toAvailability } from '../inventory/inventory.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { RetrievalService, type RetrievalHit } from '../retrieval/retrieval.service.js';
-import type { ProductQaInput } from './advisor.schemas.js';
+import type { FeedbackInput, ProductQaInput } from './advisor.schemas.js';
 import { buildCitations } from './citations.js';
-import type { ProductQaResponseDto } from './dto/advisor.dto.js';
+import type { AdvisorFeedbackResponseDto, ProductQaResponseDto } from './dto/advisor.dto.js';
 import {
   buildProductQaUserMessage,
   loadProductQaSystemPrompt,
@@ -112,6 +112,28 @@ export class AdvisorService {
       `advisor product-qa: answered hits=${String(hits.length)} citations=${String(citations.length)} abstained=false provider=${this.llm.providerName} latencyMs=${String(result.latencyMs)}`,
     );
     return { answer: result.text, citations, abstained: false };
+  }
+
+  /**
+   * Records a thumbs up/down vote on a product-QA answer (Fase 3, P3.3
+   * stub). Append-only INSERT into `advisor_feedback` for later review —
+   * no aggregation, no auth, no LLM involved. Only metadata reaches the
+   * logs: `query`/`answer` may contain user text and are never logged.
+   */
+  async recordFeedback(input: FeedbackInput): Promise<AdvisorFeedbackResponseDto> {
+    await this.prisma.advisorFeedback.create({
+      data: {
+        productId: input.productId ?? null,
+        query: input.question,
+        answer: input.answer,
+        abstained: input.abstained,
+        value: input.value,
+      },
+    });
+    this.logger.debug(
+      `advisor feedback: recorded value=${input.value} abstained=${String(input.abstained)}`,
+    );
+    return { ok: true };
   }
 
   /**

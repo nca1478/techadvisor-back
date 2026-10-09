@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBody,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -10,14 +11,23 @@ import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto.js';
 import { ApiUniformErrorResponses } from '../../common/errors/api-error-responses.decorator.js';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe.js';
-import { productQaBodySchema, type ProductQaInput } from './advisor.schemas.js';
+import {
+  feedbackBodySchema,
+  productQaBodySchema,
+  type FeedbackInput,
+  type ProductQaInput,
+} from './advisor.schemas.js';
 import { AdvisorService } from './advisor.service.js';
-import { ProductQaResponseDto } from './dto/advisor.dto.js';
+import {
+  AdvisorFeedbackRequestDto,
+  AdvisorFeedbackResponseDto,
+  ProductQaResponseDto,
+} from './dto/advisor.dto.js';
 
 /**
  * RAG product-QA advisor (see ADR 0025).
  *
- * Public endpoint, rate-limited per IP by the `advisor` throttler
+ * Public endpoints, rate-limited per IP by the `advisor` throttler
  * (`ADVISOR_RATE_LIMIT_*`; the `auth` and `search` throttlers are skipped
  * here). The question is capped at 1000 chars by the body schema, bounding
  * retrieval + LLM cost per request.
@@ -40,5 +50,17 @@ export class AdvisorController {
     @Body(new ZodValidationPipe(productQaBodySchema)) body: ProductQaInput,
   ): Promise<ProductQaResponseDto> {
     return this.advisor.answerProductQuestion(body);
+  }
+
+  @Post('feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Record a thumbs up/down vote on an advisor answer (stub)' })
+  @ApiBody({ type: AdvisorFeedbackRequestDto })
+  @ApiOkResponse({ type: AdvisorFeedbackResponseDto })
+  recordFeedback(
+    @Body(new ZodValidationPipe(feedbackBodySchema)) body: FeedbackInput,
+  ): Promise<AdvisorFeedbackResponseDto> {
+    // Fire-and-forget from the widget: validated, then append-only stored.
+    return this.advisor.recordFeedback(body);
   }
 }

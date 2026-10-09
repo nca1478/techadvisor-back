@@ -134,6 +134,7 @@ model Product {
   documents   Document[]
   chunks      Chunk[]
   unansweredQueries UnansweredQuery[]
+  advisorFeedback AdvisorFeedback[]
   inventory   Inventory?
   movements   InventoryMovement[]
   cartItems   CartItem[]
@@ -560,4 +561,29 @@ model UnansweredQuery {
   @@index([productId])
   @@index([createdAt])
   @@map("unanswered_queries")
+}
+
+// --- Advisor feedback (Fase 3, P3.3) -------------------------------------------
+// Thumbs up/down on product-QA answers from the "Pregúntale al asesor"
+// widget. Stub scope: append-only rows for later review (Fase 7 surfaces
+// them in the admin panel); no aggregation or auth here. `question`/`answer`
+// may contain user text, so logs only ever carry metadata (counts, never
+// content). `productId` is optional with SetNull like `UnansweredQuery` so
+// deleting a product never fails because of feedback rows.
+
+model AdvisorFeedback {
+  id String @id @default(uuid()) @db.Uuid
+  productId String? @map("product_id") @db.Uuid
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  query String @db.Text
+  answer String @db.Text
+  abstained Boolean @default(false)
+  /** 'up' | 'down', validated at the API edge. */
+  value String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("advisor_feedback")
 }

@@ -434,6 +434,110 @@ describe('Advisor rate limiting (e2e)', () => {
   });
 });
 
+describe('Advisor feedback (e2e)', () => {
+  const suffix = `d-${String(Date.now())}-${String(Math.floor(Math.random() * 1_000_000))}`;
+  let fixture: Fixture;
+
+  beforeAll(async () => {
+    const fake = new FakeEmbeddingAdapter({ dimensions: DIMENSIONS });
+    const llm = new FakeLlmAdapter({ defaultText: 'unused [1].' });
+    fixture = await createFixtures(hermeticOverrides(fake, llm, {}), suffix, llm);
+  }, 60_000);
+
+  afterAll(async () => {
+    const client = fixture.prisma as unknown as PrismaClient;
+    await client.advisorFeedback.deleteMany({
+      where: { OR: [{ productId: fixture.productId }, { query: `feedback q ${suffix}` }] },
+    });
+    await destroyFixtures(fixture);
+  });
+
+  it('records a vote and returns { ok: true }', async () => {
+    const res = await request(fixture.app.getHttpServer())
+      .post('/api/v1/advisor/feedback')
+      .send({
+        productId: fixture.productId,
+        question: QUESTION,
+        answer: 'La batería dura hasta 10 horas [1].',
+        abstained: false,
+        value: 'up',
+      })
+      .expect(200);
+
+    expect(res.body).toEqual({ ok: true });
+
+    const client = fixture.prisma as unknown as PrismaClient;
+    const rows = await client.advisorFeedback.findMany({
+      where: { productId: fixture.productId },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      query: QUESTION,
+      answer: 'La batería dura hasta 10 horas [1].',
+      abstained: false,
+      value: 'up',
+    });
+  });
+
+  it('records a vote without a product context', async () => {
+    const query = `feedback q ${suffix}`;
+    await request(fixture.app.getHttpServer())
+      .post('/api/v1/advisor/feedback')
+      .send({
+        question: query,
+        answer: 'No tengo esa información.',
+        abstained: true,
+        value: 'down',
+      })
+      .expect(200);
+
+    const client = fixture.prisma as unknown as PrismaClient;
+    const rows = await client.advisorFeedback.findMany({ where: { query } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ productId: null, abstained: true, value: 'down' });
+  });
+
+  it('validates productId, question, answer, abstained and value', async () => {
+    const server = fixture.app.getHttpServer();
+    const valid = {
+      productId: fixture.productId,
+      question: QUESTION,
+      answer: 'Respuesta [1].',
+      abstained: false,
+      value: 'up',
+    };
+    await request(server)
+      .post('/api/v1/advisor/feedback')
+      .send({ ...valid, productId: 'not-a-uuid' })
+      .expect(400);
+    await request(server)
+      .post('/api/v1/advisor/feedback')
+      .send({ ...valid, question: '   ' })
+      .expect(400);
+    await request(server)
+      .post('/api/v1/advisor/feedback')
+      .send({ ...valid, question: 'x'.repeat(1001) })
+      .expect(400);
+    await request(server)
+      .post('/api/v1/advisor/feedback')
+      .send({ ...valid, answer: '' })
+      .expect(400);
+    await request(server)
+      .post('/api/v1/advisor/feedback')
+      .send({ ...valid, value: 'maybe' })
+      .expect(400);
+    await request(server)
+      .post('/api/v1/advisor/feedback')
+      .send({
+        productId: valid.productId,
+        question: valid.question,
+        answer: valid.answer,
+        value: valid.value,
+      })
+      .expect(400);
+  });
+});
+
 /** LLM stub that fails like a provider outage (e.g. rejected credentials). */
 class RejectingLlmAdapter extends FakeLlmAdapter {
   constructor(private readonly failure: Error) {

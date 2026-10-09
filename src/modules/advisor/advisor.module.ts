@@ -9,8 +9,9 @@ import { AdvisorService } from './advisor.service.js';
  *
  * Exposes `POST /advisor/product-qa` backed by `RetrievalService` (hybrid
  * retrieval) and the configured `LlmProvider` — no provider SDK is ever
- * imported here. `InventoryService` and `APP_CONFIG` are global; price,
- * availability and specs always come from SQL, never from the LLM.
+ * imported here — plus the stub `POST /advisor/feedback` (append-only
+ * votes, no LLM involved). `InventoryService` and `APP_CONFIG` are global;
+ * price, availability and specs always come from SQL, never from the LLM.
  */
 @Module({
   imports: [RetrievalModule, AiModule],
