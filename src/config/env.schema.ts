@@ -205,14 +205,15 @@ const envSchema = z
     EMBEDDING_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60000).default(500),
     EMBEDDING_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(300000).default(8000),
     LLM_PROVIDER: z
-      .enum(['fake', 'openai-compatible', 'anthropic'], {
-        error: 'LLM_PROVIDER must be one of: fake, openai-compatible, anthropic',
+      .enum(['fake', 'openai-compatible', 'openai-responses', 'anthropic'], {
+        error: 'LLM_PROVIDER must be one of: fake, openai-compatible, openai-responses, anthropic',
       })
       .default('fake'),
     LLM_MODEL: llmModelSchema,
     LLM_API_KEY: llmApiKeySchema,
-    // Required for `openai-compatible`; optional override for `anthropic`
-    // (the SDK defaults to https://api.anthropic.com) and unused for `fake`.
+    // Required for `openai-compatible` and `openai-responses`; optional
+    // override for `anthropic` (the SDK defaults to
+    // https://api.anthropic.com) and unused for `fake`.
     LLM_BASE_URL: llmBaseUrlSchema,
     LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
     LLM_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
@@ -256,13 +257,20 @@ const envSchema = z
     },
   )
   .refine((env) => env.LLM_PROVIDER === 'fake' || env.LLM_MODEL !== undefined, {
-    error: 'LLM_MODEL is required when LLM_PROVIDER is openai-compatible or anthropic',
+    error:
+      'LLM_MODEL is required when LLM_PROVIDER is openai-compatible, openai-responses or anthropic',
     path: ['LLM_MODEL'],
   })
-  .refine((env) => env.LLM_PROVIDER !== 'openai-compatible' || env.LLM_BASE_URL !== undefined, {
-    error: 'LLM_BASE_URL is required when LLM_PROVIDER is openai-compatible',
-    path: ['LLM_BASE_URL'],
-  });
+  .refine(
+    (env) =>
+      env.LLM_PROVIDER === 'fake' ||
+      env.LLM_PROVIDER === 'anthropic' ||
+      env.LLM_BASE_URL !== undefined,
+    {
+      error: 'LLM_BASE_URL is required when LLM_PROVIDER is openai-compatible or openai-responses',
+      path: ['LLM_BASE_URL'],
+    },
+  );
 
 export type AppConfig = z.output<typeof envSchema>;
 

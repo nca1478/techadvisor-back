@@ -3,6 +3,7 @@ import { parseEnv } from '../../config/env.schema.js';
 import { AnthropicLlmAdapter } from './adapters/anthropic-llm.adapter.js';
 import { FakeLlmAdapter } from './adapters/fake-llm.adapter.js';
 import { OpenAiCompatibleLlmAdapter } from './adapters/openai-compatible-llm.adapter.js';
+import { OpenAiResponsesLlmAdapter } from './adapters/openai-responses-llm.adapter.js';
 import { AiConfigError } from './ai-provider.error.js';
 import { createLlmProvider } from './ai-provider.factory.js';
 import type { LlmProvider } from './interfaces/llm-provider.interface.js';
@@ -132,6 +133,65 @@ describe('createLlmProvider', () => {
     // Same consumer code, no changes.
     await expect(consumerAsk(provider, 'hola')).resolves.toContain('hello from sdk');
     expect(seen[0]).toMatchObject({ model: 'claude-test', system: 'Answer briefly.' });
+  });
+
+  it('builds the openai-responses adapter from config alone', async () => {
+    const provider = createLlmProvider(
+      parseEnv({
+        ...VALID_ENV,
+        LLM_PROVIDER: 'openai-responses',
+        LLM_MODEL: 'muse-spark-1.3-contributor',
+        LLM_API_KEY: 'zen-test-key',
+        LLM_BASE_URL: 'https://opencode.ai/zen/go/v1',
+      }),
+      (input, init) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        expect(url).toBe('https://opencode.ai/zen/go/v1/responses');
+        const body = JSON.parse(init?.body as string) as { stream?: boolean };
+        if (body.stream === true) {
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  'data: {"type":"response.output_text.delta","delta":"hello from responses"}\n\n',
+                ),
+              );
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+            },
+          });
+          return Promise.resolve(
+            new Response(stream, {
+              status: 200,
+              headers: { 'content-type': 'text/event-stream' },
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 'resp-1',
+              output: [
+                {
+                  type: 'message',
+                  role: 'assistant',
+                  content: [{ type: 'output_text', text: 'hello from responses' }],
+                },
+              ],
+              usage: { input_tokens: 3, output_tokens: 2 },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        );
+      },
+    );
+
+    expect(provider).toBeInstanceOf(OpenAiResponsesLlmAdapter);
+    expect(provider.model).toBe('muse-spark-1.3-contributor');
+    // Same consumer code, no changes.
+    await expect(consumerAsk(provider, 'hola')).resolves.toContain('hello from responses');
   });
 
   it('rejects unknown providers instead of silently misbehaving', () => {
