@@ -64,6 +64,9 @@ export class AdminDocumentsService {
     if (query.status !== undefined) {
       where.status = query.status;
     }
+    if (query.type !== undefined) {
+      where.type = query.type;
+    }
     const skip = (query.page - 1) * query.limit;
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.document.count({ where }),

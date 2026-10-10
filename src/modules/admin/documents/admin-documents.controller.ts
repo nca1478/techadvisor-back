@@ -95,7 +95,9 @@ export class AdminDocumentsController {
   constructor(private readonly documents: AdminDocumentsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List corpus documents (soft-deleted excluded) with status filter' })
+  @ApiOperation({
+    summary: 'List corpus documents (soft-deleted excluded) with status and type filters',
+  })
   @ApiOkResponse({ type: AdminDocumentListDto })
   listDocuments(
     @Query(new ZodValidationPipe(documentListQuerySchema)) query: DocumentListQuery,

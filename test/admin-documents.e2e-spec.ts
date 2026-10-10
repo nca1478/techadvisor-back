@@ -311,6 +311,43 @@ describe('Admin documents (e2e)', () => {
     expect((detail.body as DocumentBody).error).toBeNull();
   });
 
+  it('lists documents filtered by type', async () => {
+    const uploaded = await request(app.getHttpServer())
+      .post('/api/v1/admin/documents/upload')
+      .set(authHeader(adminToken))
+      .attach('file', Buffer.from(longMarkdown(`typefilter-${suffix}`, 12), 'utf8'), {
+        filename: 'policy.md',
+        contentType: 'text/markdown',
+      })
+      .field('title', `Type filter policy ${suffix}`)
+      .field('type', 'POLICY')
+      .field('locale', 'en')
+      .expect(201);
+    const policyId = (uploaded.body as DocumentBody).id;
+    createdDocumentIds.push(policyId);
+
+    const filtered = await request(app.getHttpServer())
+      .get('/api/v1/admin/documents?type=POLICY')
+      .set(authHeader(adminToken))
+      .expect(200);
+    const policyIds = ((filtered.body as { data?: DocumentBody[] }).data ?? []).map(
+      (row) => row.id,
+    );
+    expect(policyIds).toContain(policyId);
+
+    const other = await request(app.getHttpServer())
+      .get('/api/v1/admin/documents?type=FAQ')
+      .set(authHeader(adminToken))
+      .expect(200);
+    const otherIds = ((other.body as { data?: DocumentBody[] }).data ?? []).map((row) => row.id);
+    expect(otherIds).not.toContain(policyId);
+
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/documents?type=BOGUS')
+      .set(authHeader(adminToken))
+      .expect(400);
+  });
+
   it('re-ingests an unchanged document idempotently (same chunk count)', async () => {
     const id = createdDocumentIds.at(0) ?? '';
     const before = await prisma.chunk.count({ where: { documentId: id } });

@@ -89,9 +89,10 @@ export const uploadDocumentFieldsSchema = z.object({
 
 export type UploadDocumentFields = z.output<typeof uploadDocumentFieldsSchema>;
 
-/** Query for `GET /admin/documents`: optional status filter + pagination. */
+/** Query for `GET /admin/documents`: optional status/type filters + pagination. */
 export const documentListQuerySchema = z.object({
   status: documentStatusSchema.optional(),
+  type: documentTypeSchema.optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
