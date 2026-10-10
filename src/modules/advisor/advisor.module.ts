@@ -7,6 +7,7 @@ import { AdvisorController } from './advisor.controller.js';
 import { AdvisorService } from './advisor.service.js';
 import { ChatSessionsController } from './chat-sessions.controller.js';
 import { ChatSessionsService } from './chat-sessions.service.js';
+import { IntentService } from './intent/intent.service.js';
 
 /**
  * Product-QA advisor module (see ADR 0025) plus chat-session history
@@ -21,11 +22,14 @@ import { ChatSessionsService } from './chat-sessions.service.js';
  * provides the JWT primitives and `OptionalJwtAuthGuard` (shared source
  * with carts, registered here as its own provider instance) resolves the
  * owner. `InventoryService` and `APP_CONFIG` are global; price, availability
- * and specs always come from SQL, never from the LLM.
+ * and specs always come from SQL, never from the LLM. `IntentService`
+ * (see ADR 0031) extracts structured purchase constraints from the history
+ * via `LlmProvider` plus a deterministic budget parser — no recommendations.
  */
 @Module({
   imports: [RetrievalModule, AiModule, AuthSecurityModule],
   controllers: [AdvisorController, ChatSessionsController],
-  providers: [AdvisorService, ChatSessionsService, OptionalJwtAuthGuard],
+  providers: [AdvisorService, ChatSessionsService, IntentService, OptionalJwtAuthGuard],
+  exports: [IntentService],
 })
 export class AdvisorModule {}
