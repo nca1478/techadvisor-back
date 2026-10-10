@@ -57,6 +57,7 @@ interface SessionMocks {
   sessionCreate: ReturnType<typeof vi.fn>;
   sessionFindMany: ReturnType<typeof vi.fn>;
   sessionFindUnique: ReturnType<typeof vi.fn>;
+  sessionDelete: ReturnType<typeof vi.fn>;
   sessionDeleteMany: ReturnType<typeof vi.fn>;
   messageFindMany: ReturnType<typeof vi.fn>;
   messageCount: ReturnType<typeof vi.fn>;
@@ -68,6 +69,7 @@ function buildService(overrides: Partial<SessionMocks> = {}) {
     sessionCreate: vi.fn(),
     sessionFindMany: vi.fn().mockResolvedValue([]),
     sessionFindUnique: vi.fn(),
+    sessionDelete: vi.fn().mockResolvedValue(userSessionRow()),
     sessionDeleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     messageFindMany: vi.fn().mockResolvedValue([]),
     messageCount: vi.fn().mockResolvedValue(0),
@@ -79,6 +81,7 @@ function buildService(overrides: Partial<SessionMocks> = {}) {
       create: mocks.sessionCreate,
       findMany: mocks.sessionFindMany,
       findUnique: mocks.sessionFindUnique,
+      delete: mocks.sessionDelete,
       deleteMany: mocks.sessionDeleteMany,
     },
     chatMessage: {
@@ -191,16 +194,14 @@ describe('ChatSessionsService (unit, mocked database)', () => {
   });
 
   it('appends a message within both limits', async () => {
-    const messageCreate = vi
-      .fn()
-      .mockResolvedValue(
-        messageRow({
-          role: 'ASSISTANT',
-          content: 'hi',
-          citations: [{ n: 1 }],
-          products: [{ id: 'p1' }],
-        }),
-      );
+    const messageCreate = vi.fn().mockResolvedValue(
+      messageRow({
+        role: 'ASSISTANT',
+        content: 'hi',
+        citations: [{ n: 1 }],
+        products: [{ id: 'p1' }],
+      }),
+    );
     const { service } = buildService({
       sessionFindUnique: vi.fn().mockResolvedValue(guestSessionRow()),
       messageCount: vi.fn().mockResolvedValue(1),
@@ -224,6 +225,43 @@ describe('ChatSessionsService (unit, mocked database)', () => {
     });
     expect(stored).toMatchObject({ role: 'ASSISTANT', content: 'hi' });
     expect(stored.citations).toEqual([{ n: 1 }]);
+  });
+
+  it.each([
+    ['user session deleted by its owner', userSessionRow(), USER_OWNER],
+    ['guest session deleted by its owner', guestSessionRow(), GUEST_OWNER],
+  ])('physically deletes the %s', async (_label, row, owner) => {
+    const sessionDelete = vi.fn().mockResolvedValue(row);
+    const { service } = buildService({
+      sessionFindUnique: vi.fn().mockResolvedValue(row),
+      sessionDelete,
+    });
+
+    await service.deleteSession(SESSION_ID, owner);
+    expect(sessionDelete).toHaveBeenCalledWith({ where: { id: SESSION_ID } });
+  });
+
+  it.each([
+    ['unknown id', null, USER_OWNER],
+    ['user session deleted as guest', userSessionRow(), GUEST_OWNER],
+    ['user session deleted by another user', userSessionRow(), { kind: 'user', userId: USER_B }],
+    ['guest session deleted as user', guestSessionRow(), USER_OWNER],
+    [
+      'guest session deleted by another guest',
+      guestSessionRow(),
+      { kind: 'guest', anonSessionId: ANON_B },
+    ],
+  ])('404s deleting %s without touching the database', async (_label, row, owner) => {
+    const sessionDelete = vi.fn();
+    const { service } = buildService({
+      sessionFindUnique: vi.fn().mockResolvedValue(row),
+      sessionDelete,
+    });
+
+    await expect(
+      service.deleteSession(SESSION_ID, owner as ChatSessionOwner),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(sessionDelete).not.toHaveBeenCalled();
   });
 
   it('lists user sessions newest-first via the database ordering', async () => {

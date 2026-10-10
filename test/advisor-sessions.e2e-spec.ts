@@ -345,6 +345,54 @@ describe('Advisor chat sessions (e2e)', () => {
       .expect(404);
   });
 
+  it('physically deletes an owned session with its messages', async () => {
+    const server = app.getHttpServer();
+    const client = prisma as unknown as PrismaClient;
+    const authA = (req: request.Test) => req.set('Authorization', `Bearer ${tokenA}`);
+    const authB = (req: request.Test) => req.set('Authorization', `Bearer ${tokenB}`);
+
+    const created = await authA(request(server).post('/api/v1/advisor/sessions')).expect(201);
+    const id = (created.body as SessionBody).id;
+    createdSessionIds.push(id);
+    await authA(
+      request(server).post(`/api/v1/advisor/sessions/${id}/messages`).send({
+        role: 'USER',
+        content: 'bye',
+      }),
+    ).expect(201);
+    await authA(
+      request(server).post(`/api/v1/advisor/sessions/${id}/messages`).send({
+        role: 'ASSISTANT',
+        content: 'bye back',
+      }),
+    ).expect(201);
+
+    // A foreign user cannot delete: 404 and the session stays intact.
+    await authB(request(server).delete(`/api/v1/advisor/sessions/${id}`)).expect(404);
+    await authA(request(server).get(`/api/v1/advisor/sessions/${id}`)).expect(200);
+
+    // The owner deletes: history and listing lose it, messages cascade away.
+    await authA(request(server).delete(`/api/v1/advisor/sessions/${id}`)).expect(204);
+    await authA(request(server).get(`/api/v1/advisor/sessions/${id}`)).expect(404);
+    const list = await authA(request(server).get('/api/v1/advisor/sessions')).expect(200);
+    expect((list.body as SessionBody[]).map((session) => session.id)).not.toContain(id);
+    await expect(client.chatMessage.count({ where: { sessionId: id } })).resolves.toBe(0);
+
+    // Unknown ids 404 like foreign ones; malformed ids 400.
+    await authA(
+      request(server).delete('/api/v1/advisor/sessions/44444444-4444-4444-8444-444444444444'),
+    ).expect(404);
+    await authA(request(server).delete('/api/v1/advisor/sessions/not-a-uuid')).expect(400);
+
+    // Guests delete their own sessions too.
+    const guest = request.agent(app.getHttpServer());
+    const guestCreated = await guest.post('/api/v1/advisor/sessions').expect(201);
+    const guestId = (guestCreated.body as SessionBody).id;
+    createdSessionIds.push(guestId);
+    await guest.delete(`/api/v1/advisor/sessions/${guestId}`).expect(204);
+    await guest.get(`/api/v1/advisor/sessions/${guestId}`).expect(404);
+  });
+
   it('never mixes user and guest ownership', async () => {
     const server = app.getHttpServer();
     const guest = request.agent(app.getHttpServer());
@@ -595,13 +643,11 @@ describe('Advisor chat sessions (e2e)', () => {
     const session = created.body as SessionBody;
     createdSessionIds.push(session.id);
     await authA(
-      request(server)
-        .post('/api/v1/advisor/product-qa')
-        .send({
-          productId: docProductId,
-          question: '¿Cuánto dura la batería?',
-          sessionId: session.id,
-        }),
+      request(server).post('/api/v1/advisor/product-qa').send({
+        productId: docProductId,
+        question: '¿Cuánto dura la batería?',
+        sessionId: session.id,
+      }),
     ).expect(200);
 
     await authA(

@@ -76,6 +76,20 @@ export class ChatSessionsService {
     return rows.map((row) => toSummary(row.id, row._count.messages, row.createdAt, row.updatedAt));
   }
 
+  /**
+   * Physically deletes one owned session. Its messages cascade at the
+   * database level (`ChatMessage.session`, `onDelete: Cascade`), so no
+   * orphan rows remain. Analytics rows that only carry the session id as a
+   * plain field (`UnansweredQuery.sessionId`) are intentionally left
+   * untouched. Unknown ids and foreign sessions 404 identically, like every
+   * other session-scoped operation.
+   */
+  async deleteSession(sessionId: string, owner: ChatSessionOwner): Promise<void> {
+    await this.findOwnedSessionOrThrow(sessionId, owner);
+    await this.prisma.chatSession.delete({ where: { id: sessionId } });
+    this.logger.debug(`advisor chat: session deleted kind=${owner.kind}`);
+  }
+
   /** Reads one session with its full history (oldest message first). */
   async getSessionHistory(sessionId: string, owner: ChatSessionOwner): Promise<ChatSessionHistory> {
     const session = await this.findOwnedSessionOrThrow(sessionId, owner);

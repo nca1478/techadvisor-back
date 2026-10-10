@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -109,6 +110,22 @@ export class ChatSessionsController {
   ): Promise<ChatSessionHistoryResponseDto> {
     const owner = this.resolveOwner(req, res);
     return this.sessions.getSessionHistory(params.id, owner);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete one owned session with its messages' })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+    description: 'Unknown session (or owned by another user).',
+  })
+  deleteSession(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param(new ZodValidationPipe(chatSessionParamsSchema)) params: ChatSessionParams,
+  ): Promise<void> {
+    const owner = this.resolveOwner(req, res);
+    return this.sessions.deleteSession(params.id, owner);
   }
 
   @Post(':id/messages')
