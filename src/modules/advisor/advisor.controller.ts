@@ -32,11 +32,14 @@ import {
   type ProductQaInput,
 } from './advisor.schemas.js';
 import { AdvisorService } from './advisor.service.js';
+import { compareBodySchema, type CompareInput } from './compare/compare.schemas.js';
+import { CompareService } from './compare/compare.service.js';
 import {
   AdvisorFeedbackRequestDto,
   AdvisorFeedbackResponseDto,
   ProductQaResponseDto,
 } from './dto/advisor.dto.js';
+import { CompareRequestDto, CompareResponseDto } from './dto/compare.dto.js';
 import { resolveSessionOwner } from './session-owner.js';
 
 /**
@@ -58,6 +61,7 @@ import { resolveSessionOwner } from './session-owner.js';
 export class AdvisorController {
   constructor(
     private readonly advisor: AdvisorService,
+    private readonly compare: CompareService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -73,6 +77,20 @@ export class AdvisorController {
   ): Promise<ProductQaResponseDto> {
     const owner = resolveSessionOwner(req, res, this.config.JWT_SECRET);
     return this.advisor.answerProductQuestion(body, owner);
+  }
+
+  @Post('compare')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Compare 2-3 products: SQL table + cited LLM summary' })
+  @ApiBody({ type: CompareRequestDto })
+  @ApiOkResponse({ type: CompareResponseDto })
+  @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'Product not found or not active.' })
+  compareProducts(
+    @Body(new ZodValidationPipe(compareBodySchema)) body: CompareInput,
+  ): Promise<CompareResponseDto> {
+    // Same advisor throttler and optional-guest ownership as product-QA:
+    // the table and figures always come from SQL, the LLM only explains.
+    return this.compare.compare(body);
   }
 
   @Post('feedback')

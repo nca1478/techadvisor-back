@@ -5,6 +5,7 @@ import { AuthSecurityModule } from '../auth/auth-security.module.js';
 import { OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
 import { AdvisorController } from './advisor.controller.js';
 import { AdvisorService } from './advisor.service.js';
+import { CompareService } from './compare/compare.service.js';
 import { ChatSessionsController } from './chat-sessions.controller.js';
 import { ChatSessionsService } from './chat-sessions.service.js';
 import { IntentService } from './intent/intent.service.js';
@@ -28,6 +29,9 @@ import { RecommendService } from './recommend/recommendation.service.js';
  * via `LlmProvider` plus a deterministic budget parser — no recommendations.
  * `RecommendService` (see ADR 0032) runs the buying-advisor flow over a
  * closed SQL candidate set behind `POST /advisor/sessions/:id/messages`.
+ * `CompareService` (see ADR 0035) compares 2..3 ACTIVE products behind
+ * `POST /advisor/compare`: a code-built SQL table plus the deterministic
+ * ADR 0034 verdict, with the LLM only redacting a cited summary.
  */
 @Module({
   imports: [RetrievalModule, AiModule, AuthSecurityModule],
@@ -35,6 +39,7 @@ import { RecommendService } from './recommend/recommendation.service.js';
   providers: [
     AdvisorService,
     ChatSessionsService,
+    CompareService,
     IntentService,
     RecommendService,
     OptionalJwtAuthGuard,
