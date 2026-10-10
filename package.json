@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "seed": "tsx prisma/seed.ts",
+    "seed:policies": "tsx prisma/seed-policies.ts",
     "build": "nest build",
     "deploy": "nest deploy",
     "dev": "nest start --watch",

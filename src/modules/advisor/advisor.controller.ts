@@ -24,7 +24,7 @@ import type { AppConfig } from '../../config/env.schema.js';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto.js';
 import { ApiUniformErrorResponses } from '../../common/errors/api-error-responses.decorator.js';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe.js';
-import { OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
+import { getOptionalUser, OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
 import {
   feedbackBodySchema,
   productQaBodySchema,
@@ -40,7 +40,10 @@ import {
   ProductQaResponseDto,
 } from './dto/advisor.dto.js';
 import { CompareRequestDto, CompareResponseDto } from './dto/compare.dto.js';
+import { SupportRequestDto, SupportResponseDto } from './dto/support.dto.js';
 import { resolveSessionOwner } from './session-owner.js';
+import { supportBodySchema, type SupportInput } from './support/support.schemas.js';
+import { SupportService } from './support/support.service.js';
 
 /**
  * RAG product-QA advisor (see ADR 0025).
@@ -62,6 +65,7 @@ export class AdvisorController {
   constructor(
     private readonly advisor: AdvisorService,
     private readonly compare: CompareService,
+    private readonly support: SupportService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -91,6 +95,22 @@ export class AdvisorController {
     // Same advisor throttler and optional-guest ownership as product-QA:
     // the table and figures always come from SQL, the LLM only explains.
     return this.compare.compare(body);
+  }
+
+  @Post('support')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Ask the post-sale support advisor (policies, cited)' })
+  @ApiBody({ type: SupportRequestDto })
+  @ApiOkResponse({ type: SupportResponseDto })
+  @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'Order not found or not owned.' })
+  answerSupportQuestion(
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(supportBodySchema)) body: SupportInput,
+  ): Promise<SupportResponseDto> {
+    // Order-scoped questions need the authenticated caller; anonymous users
+    // may only ask general policy questions (the service 401s otherwise).
+    const user = getOptionalUser(req as unknown as Record<string, unknown>);
+    return this.support.answerSupportQuestion(body, user);
   }
 
   @Post('feedback')

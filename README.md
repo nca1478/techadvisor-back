@@ -54,6 +54,17 @@ de duplicar.
 npm run seed             # se niega a correr con NODE_ENV=production
 ```
 
+## Políticas del asesor posventa (RAG)
+
+Plantillas de ejemplo de garantía, envíos, devoluciones, métodos de pago y
+privacidad en `docs/content/policies/<locale>/*.md` (es y en), marcadas como
+plantilla a revisar por el negocio. Se ingieren como documentos `POLICY` para
+el endpoint `POST /api/v1/advisor/support` (ver ADR `0036`):
+
+```bash
+npm run seed:policies    # idempotente: omite lo que no cambió; también se niega en producción
+```
+
 Usuarios de prueba (solo desarrollo local, nunca producción):
 
 | Rol      | Email                        | Contraseña     |
@@ -67,6 +78,7 @@ Usuarios de prueba (solo desarrollo local, nunca producción):
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | `npm run dev`              | arranca en modo watch (puerto 3001)                                                      |
 | `npm run seed`             | carga datos de desarrollo/demo                                                           |
+| `npm run seed:policies`    | ingiere las políticas de ejemplo como documentos `POLICY` (idempotente)                  |
 | `npm run build`            | compila a `dist/`                                                                        |
 | `npm run worker:ingestion` | corre el worker de ingesta RAG (desde `dist/`, requiere `npm run build` antes)           |
 | `npm run worker:reindex`   | corre el worker de reindex de embeddings (desde `dist/`, requiere `npm run build` antes) |

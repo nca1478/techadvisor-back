@@ -10,6 +10,7 @@ import { ChatSessionsController } from './chat-sessions.controller.js';
 import { ChatSessionsService } from './chat-sessions.service.js';
 import { IntentService } from './intent/intent.service.js';
 import { RecommendService } from './recommend/recommendation.service.js';
+import { SupportService } from './support/support.service.js';
 
 /**
  * Product-QA advisor module (see ADR 0025) plus chat-session history
@@ -32,6 +33,9 @@ import { RecommendService } from './recommend/recommendation.service.js';
  * `CompareService` (see ADR 0035) compares 2..3 ACTIVE products behind
  * `POST /advisor/compare`: a code-built SQL table plus the deterministic
  * ADR 0034 verdict, with the LLM only redacting a cited summary.
+ * `SupportService` (see ADR 0036) answers post-sale questions behind
+ * `POST /advisor/support` over POLICY/WARRANTY/FAQ evidence, optionally
+ * grounded in one owned order (SQL facts, never PII to the LLM).
  */
 @Module({
   imports: [RetrievalModule, AiModule, AuthSecurityModule],
@@ -42,6 +46,7 @@ import { RecommendService } from './recommend/recommendation.service.js';
     CompareService,
     IntentService,
     RecommendService,
+    SupportService,
     OptionalJwtAuthGuard,
   ],
   exports: [IntentService],

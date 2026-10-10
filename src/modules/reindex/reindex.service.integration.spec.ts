@@ -256,7 +256,10 @@ describe('Embedding model switch 8d → 16d (integration)', () => {
     for (const row of tags) {
       expect(row.model).toBe(SOURCE_MODEL);
     }
-  });
+    // The snapshot covers the whole shared corpus (grown by the POLICY seed,
+    // see ADR 0036), so under parallel-suite DB contention this batch loop
+    // may exceed the 5 s default timeout without anything being wrong.
+  }, 60_000);
 
   it('keeps serving the old model after reindexing, before activation', async () => {
     const hits = await retrievalOld.search({ query: skuToken, topN: 10 });
