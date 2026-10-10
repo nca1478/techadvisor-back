@@ -1,5 +1,7 @@
-# Backend CI — lint + typecheck + tests + build against a pgvector Postgres.
+# Backend CI — lint + typecheck + tests + RAG eval + build against a pgvector Postgres.
 # No secrets: all values below are throwaway test values for the job only.
+# The RAG eval runs fully offline (fake adapters, no network) with quality
+# thresholds enforced (--strict): it fails the job on quality regressions.
 name: ci
 
 on:
@@ -52,4 +54,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:e2e
+      - run: npm run eval -- --offline --strict
       - run: npm run build
