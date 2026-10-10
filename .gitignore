@@ -18,6 +18,10 @@ coverage/
 # logs
 *.log
 
+# RAG eval reports (generated; the dataset and runner are versioned)
+eval/results/*
+!eval/results/.gitkeep
+
 # admin-uploaded RAG source files (local disk storage, see ADR 0020)
 storage/
 
