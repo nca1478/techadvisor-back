@@ -251,6 +251,13 @@ const envSchema = z
       .min(1024)
       .max(10 * 1024 * 1024)
       .default(10 * 1024 * 1024),
+    // Review pros/cons summaries (see ADR 0037). The summary row is absent
+    // while a product has fewer PUBLISHED reviews than this minimum; every
+    // moderation change touching PUBLISHED re-runs the refresh inline.
+    REVIEW_SUMMARY_MIN_REVIEWS: z.coerce.number().int().min(1).max(20).default(3),
+    // Published reviews ingested per product into one REVIEW document (cap
+    // bounds the prompt/queue payload; newest first).
+    REVIEW_INGESTION_MAX_REVIEWS: z.coerce.number().int().min(1).max(100).default(20),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',

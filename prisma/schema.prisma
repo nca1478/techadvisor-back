@@ -33,6 +33,7 @@ model User {
   carts        Cart[]
   orders       Order[]
   chatSessions ChatSession[]
+  reviews      Review[]
 
   @@map("users")
 }
@@ -140,6 +141,8 @@ model Product {
   movements   InventoryMovement[]
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  reviews     Review[]
+  reviewSummary ProductReviewSummary?
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -640,4 +643,72 @@ model ChatMessage {
 
   @@index([sessionId, createdAt])
   @@map("chat_messages")
+}
+
+// --- Reviews (Fase 6, reseñas y resumen) --------------------------------------
+// Customer reviews: only buyers of the product (an order in PAID or DELIVERED
+// containing the product) may review, once per product (unique
+// productId+userId). New reviews start PENDING; only PUBLISHED rows are
+// listed publicly, ingested as REVIEW documents and fed to the summary.
+// `verifiedPurchase` is always true at creation (the purchase check passed);
+// it is stored so the UI can badge it without re-joining orders.
+// Reviews are UNTRUSTED data for the LLM: never quoted at length, never with
+// author identity, always delimited (see review-summary.prompt.ts).
+// `rating` bounds (1..5) are enforced by a DB CHECK in the migration.
+
+/** Moderation lifecycle of a customer review. */
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+model Review {
+  id String @id @default(uuid()) @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /** Star rating, 1..5 (CHECK in the migration). */
+  rating Int
+  /** Short headline (max 120 chars, validated at the API edge). */
+  title String @db.VarChar(120)
+  /** Review text (max 2000 chars, validated at the API edge). */
+  body String @db.Text
+  /** True when the author bought this product (always true post-check). */
+  verifiedPurchase Boolean @default(true) @map("verified_purchase")
+  status ReviewStatus @default(PENDING)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, userId])
+  @@index([productId, status])
+  @@index([userId])
+  @@map("reviews")
+}
+
+/**
+ * Cached pros/cons summary per product, generated from PUBLISHED reviews
+ * via `LlmProvider.generateJson` (see ReviewSummaryService + ADR 0037).
+ * One row per product (`productId` is PK/FK); absent when the product has
+ * fewer than `REVIEW_SUMMARY_MIN_REVIEWS` published reviews. `pros`/`cons`
+ * are short paraphrases (never long verbatim quotes, never author data);
+ * `basedOnCount` is set server-side from the review count (never trusted
+ * from the model); `model` records the generating LLM for comparability.
+ */
+model ProductReviewSummary {
+  productId String @id @map("product_id") @db.Uuid
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /** Short pro bullets (JSON string array, max 8 x 140 chars). */
+  pros Json @default("[]") @db.JsonB
+  /** Short con bullets (JSON string array, max 8 x 140 chars). */
+  cons Json @default("[]") @db.JsonB
+  /** Published reviews the summary was generated from (server-side count). */
+  basedOnCount Int @map("based_on_count")
+  /** LLM model id that generated the summary (e.g. `fake-llm-v1`). */
+  model String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("product_review_summaries")
 }
