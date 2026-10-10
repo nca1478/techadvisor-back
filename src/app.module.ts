@@ -18,6 +18,7 @@ import { ReindexModule } from './modules/reindex/reindex.module.js';
 import { RetrievalModule } from './modules/retrieval/retrieval.module.js';
 import { SearchModule } from './modules/search/search.module.js';
 import { AdvisorModule } from './modules/advisor/advisor.module.js';
+import { CompatibilityModule } from './modules/compatibility/compatibility.module.js';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AdvisorModule } from './modules/advisor/advisor.module.js';
     RetrievalModule,
     SearchModule,
     AdvisorModule,
+    CompatibilityModule,
   ],
 })
 export class AppModule implements NestModule {

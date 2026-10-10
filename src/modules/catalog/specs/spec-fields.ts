@@ -59,6 +59,9 @@ const MOTHERBOARD_FIELDS: SpecFieldDef[] = [
   },
   { key: 'ram_slots', label: 'Memory slots', type: 'integer' },
   { key: 'max_ram_gb', label: 'Max memory', type: 'integer', unit: 'GB' },
+  { key: 'max_ram_speed_mt_s', label: 'Max memory speed', type: 'integer', unit: 'MT/s' },
+  { key: 'm2_slots', label: 'M.2 slots', type: 'integer' },
+  { key: 'sata_ports', label: 'SATA ports', type: 'integer' },
 ];
 
 const RAM_FIELDS: SpecFieldDef[] = [
