@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -35,10 +36,11 @@ import { OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
 import {
   chatMessageBodySchema,
   chatSessionParamsSchema,
-  type ChatMessageInput,
   type ChatSessionParams,
 } from './chat-sessions.schemas.js';
 import { ChatSessionsService, type ChatSessionOwner } from './chat-sessions.service.js';
+import { recommendBodySchema, type RecommendInput } from './recommend/recommend.schemas.js';
+import { RecommendService, type RecommendResponse } from './recommend/recommendation.service.js';
 import { resolveSessionOwner } from './session-owner.js';
 import {
   ChatMessageResponseDto,
@@ -47,6 +49,7 @@ import {
   ChatSessionsCleanupResponseDto,
   CreateChatMessageRequestDto,
 } from './dto/chat-sessions.dto.js';
+import { RecommendRequestDto, RecommendResponseDto } from './dto/recommend.dto.js';
 
 /**
  * Chat-session history (see ADR 0029).
@@ -68,6 +71,7 @@ import {
 export class ChatSessionsController {
   constructor(
     private readonly sessions: ChatSessionsService,
+    private readonly recommendService: RecommendService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -108,22 +112,79 @@ export class ChatSessionsController {
   }
 
   @Post(':id/messages')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Append one message to an owned session (bounded history)' })
+  @ApiOperation({
+    summary:
+      'Append one message (legacy role+content, 201) or run the buying advisor (content only: 200 JSON, or SSE with Accept: text/event-stream)',
+  })
   @ApiBody({ type: CreateChatMessageRequestDto })
+  @ApiBody({ type: RecommendRequestDto })
   @ApiOkResponse({ type: ChatMessageResponseDto })
+  @ApiOkResponse({ type: RecommendResponseDto })
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
     description: 'Unknown session (or owned by another user).',
   })
-  addMessage(
+  async postSessionMessage(
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
     @Param(new ZodValidationPipe(chatSessionParamsSchema)) params: ChatSessionParams,
-    @Body(new ZodValidationPipe(chatMessageBodySchema)) body: ChatMessageInput,
-  ): Promise<ChatMessageResponseDto> {
+    @Body() rawBody: unknown,
+  ): Promise<void> {
     const owner = this.resolveOwner(req, res);
-    return this.sessions.addMessage(params.id, owner, body);
+    if (isRecordWithRole(rawBody)) {
+      const parsed = chatMessageBodySchema.safeParse(rawBody);
+      if (!parsed.success) {
+        throw toBadRequest(parsed.error.issues);
+      }
+      const created = await this.sessions.addMessage(params.id, owner, parsed.data);
+      res.status(HttpStatus.CREATED).json(created);
+      return;
+    }
+    const parsed = recommendBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw toBadRequest(parsed.error.issues);
+    }
+    if (wantsServerSentEvents(req)) {
+      await this.streamRecommendation(params.id, owner, parsed.data, res);
+      return;
+    }
+    const answer = await this.recommendService.recommend(params.id, owner, parsed.data);
+    res.status(HttpStatus.OK).json(answer);
+  }
+
+  /**
+   * SSE delivery of an already-validated recommendation (see ADR 0032): the
+   * full flow runs first (single LLM call, post-validation, SQL hydration),
+   * then the validated text is replayed as `event: delta` chunks, followed
+   * by `event: products` with the validated cards and `event: done`.
+   */
+  private async streamRecommendation(
+    sessionId: string,
+    owner: ChatSessionOwner,
+    input: RecommendInput,
+    res: Response,
+  ): Promise<void> {
+    const answer: RecommendResponse = await this.recommendService.recommend(
+      sessionId,
+      owner,
+      input,
+    );
+    res.writeHead(HttpStatus.OK, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+    for (const chunk of splitIntoDeltas(answer.message)) {
+      res.write(`event: delta\ndata: ${JSON.stringify({ text: chunk })}\n\n`);
+    }
+    res.write(`event: products\ndata: ${JSON.stringify({ products: answer.products })}\n\n`);
+    if (answer.clarifyingQuestion !== undefined) {
+      res.write(
+        `event: clarifyingQuestion\ndata: ${JSON.stringify({ clarifyingQuestion: answer.clarifyingQuestion })}\n\n`,
+      );
+    }
+    res.write('event: done\ndata: {}\n\n');
+    res.end();
   }
 
   @Post('cleanup')
@@ -142,4 +203,28 @@ export class ChatSessionsController {
   private resolveOwner(req: Request, res: Response): ChatSessionOwner {
     return resolveSessionOwner(req, res, this.config.JWT_SECRET);
   }
+}
+
+/** Legacy shape carries `role`; the recommendation shape carries only `content`. */
+function isRecordWithRole(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && 'role' in value;
+}
+
+function toBadRequest(
+  issues: readonly { path: PropertyKey[]; message: string }[],
+): BadRequestException {
+  const details = issues.map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`);
+  return new BadRequestException({ message: details.join('; '), details });
+}
+
+/** SSE is requested explicitly via `Accept: text/event-stream`. */
+function wantsServerSentEvents(req: Request): boolean {
+  const accept = req.headers.accept ?? '';
+  return accept.includes('text/event-stream');
+}
+
+/** Splits validated text into word-sized SSE deltas (never empty). Pure. */
+export function splitIntoDeltas(text: string): string[] {
+  const words = text.split(/(\s+)/).filter((part) => part.length > 0);
+  return words.length > 0 ? words : [text];
 }

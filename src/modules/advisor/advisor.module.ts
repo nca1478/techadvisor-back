@@ -8,6 +8,7 @@ import { AdvisorService } from './advisor.service.js';
 import { ChatSessionsController } from './chat-sessions.controller.js';
 import { ChatSessionsService } from './chat-sessions.service.js';
 import { IntentService } from './intent/intent.service.js';
+import { RecommendService } from './recommend/recommendation.service.js';
 
 /**
  * Product-QA advisor module (see ADR 0025) plus chat-session history
@@ -25,11 +26,19 @@ import { IntentService } from './intent/intent.service.js';
  * and specs always come from SQL, never from the LLM. `IntentService`
  * (see ADR 0031) extracts structured purchase constraints from the history
  * via `LlmProvider` plus a deterministic budget parser — no recommendations.
+ * `RecommendService` (see ADR 0032) runs the buying-advisor flow over a
+ * closed SQL candidate set behind `POST /advisor/sessions/:id/messages`.
  */
 @Module({
   imports: [RetrievalModule, AiModule, AuthSecurityModule],
   controllers: [AdvisorController, ChatSessionsController],
-  providers: [AdvisorService, ChatSessionsService, IntentService, OptionalJwtAuthGuard],
+  providers: [
+    AdvisorService,
+    ChatSessionsService,
+    IntentService,
+    RecommendService,
+    OptionalJwtAuthGuard,
+  ],
   exports: [IntentService],
 })
 export class AdvisorModule {}
