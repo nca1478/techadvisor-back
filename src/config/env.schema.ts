@@ -222,7 +222,7 @@ const envSchema = z
     LLM_API_KEY: llmApiKeySchema,
     // Required for `openai-compatible` and `openai-responses`; optional
     // override for `anthropic` (the SDK defaults to
-    // https://api.anthropic.com) and unused for `fake`.
+    // https://api.anthropic.com) and unused for `fake`...
     LLM_BASE_URL: llmBaseUrlSchema,
     LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
     LLM_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
