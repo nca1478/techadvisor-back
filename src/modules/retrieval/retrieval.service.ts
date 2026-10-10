@@ -17,6 +17,7 @@ import {
   type RetrievalSearchInput,
 } from './retrieval.schemas.js';
 import { hasSkuPattern } from './sku-pattern.js';
+import { AiCallLoggerService } from '../observability/ai-call-logger.service.js';
 
 /** Full-text configuration implied by a BCP 47 locale (mirrors SQL `rag_regconfig`). */
 export type FulltextConfig = 'spanish' | 'english';
@@ -93,9 +94,35 @@ export class RetrievalService {
     private readonly prisma: PrismaService,
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
     @Optional() private readonly state?: EmbeddingStateService | null,
+    @Optional() private readonly callLogger?: AiCallLoggerService | null,
   ) {}
 
   async search(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
+    const startedAt = Date.now();
+    try {
+      const hits = await this.searchInner(input);
+      this.callLogger?.log({
+        type: 'RETRIEVAL',
+        provider: 'local',
+        model: 'hybrid-rrf-v1',
+        latencyMs: Date.now() - startedAt,
+        status: 'OK',
+      });
+      return hits;
+    } catch (error) {
+      this.callLogger?.log({
+        type: 'RETRIEVAL',
+        provider: 'local',
+        model: 'hybrid-rrf-v1',
+        latencyMs: Date.now() - startedAt,
+        status: 'ERROR',
+        errorCode: error instanceof Error ? error.name.slice(0, 120) : 'unknown',
+      });
+      throw error;
+    }
+  }
+
+  private async searchInner(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
     const { query, filters, locale, topN, candidateK, rrfK } = this.parseInput(input);
     const scope = await this.resolveScope();
 
@@ -164,6 +191,31 @@ export class RetrievalService {
    * (`1 / (rrfK + rank)`) so scores stay comparable with hybrid results.
    */
   async searchFulltextOnly(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
+    const startedAt = Date.now();
+    try {
+      const hits = await this.searchFulltextOnlyInner(input);
+      this.callLogger?.log({
+        type: 'RETRIEVAL',
+        provider: 'local',
+        model: 'fulltext-only-v1',
+        latencyMs: Date.now() - startedAt,
+        status: 'OK',
+      });
+      return hits;
+    } catch (error) {
+      this.callLogger?.log({
+        type: 'RETRIEVAL',
+        provider: 'local',
+        model: 'fulltext-only-v1',
+        latencyMs: Date.now() - startedAt,
+        status: 'ERROR',
+        errorCode: error instanceof Error ? error.name.slice(0, 120) : 'unknown',
+      });
+      throw error;
+    }
+  }
+
+  private async searchFulltextOnlyInner(input: RetrievalSearchInput): Promise<RetrievalHit[]> {
     const { query, filters, locale, topN, candidateK, rrfK } = this.parseInput(input);
     const scope = await this.resolveScope();
 

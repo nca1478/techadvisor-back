@@ -258,6 +258,15 @@ const envSchema = z
     // Published reviews ingested per product into one REVIEW document (cap
     // bounds the prompt/queue payload; newest first).
     REVIEW_INGESTION_MAX_REVIEWS: z.coerce.number().int().min(1).max(100).default(20),
+    // AI observability (see ADR 0039): retention of the metadata-only
+    // `ai_call_logs` rows (purged by the admin cleanup trigger) and optional
+    // per-1k-token USD tariffs used ONLY for the telemetry `estimated_cost`
+    // column (never billing). Zero (default) means "no tariff configured" and
+    // stores NULL cost.
+    AI_CALL_LOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+    AI_COST_LLM_INPUT_PER_1K: z.coerce.number().min(0).max(1000).default(0),
+    AI_COST_LLM_OUTPUT_PER_1K: z.coerce.number().min(0).max(1000).default(0),
+    AI_COST_EMBEDDING_PER_1K: z.coerce.number().min(0).max(1000).default(0),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',

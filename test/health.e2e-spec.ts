@@ -13,13 +13,15 @@ describe('Health (e2e)', () => {
     await app.close();
   });
 
-  it('GET /api/v1/health returns { status: ok, db: up }', async () => {
-    await request(app.getHttpServer())
-      .get('/api/v1/health')
-      .expect(200)
-      .expect(({ body }: { body: unknown }) => {
-        expect(body).toEqual({ status: 'ok', db: 'up' });
-      });
+  it('GET /api/v1/health returns extended probe without live AI calls', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+    const body = res.body as Record<string, unknown>;
+    expect(body).toMatchObject({ status: 'ok', db: 'up' });
+    // Extended probe (see ADR 0039): redis + ingestion queue + last-known AI
+    // state. No value may carry user content — only closed enums.
+    expect(['up', 'down']).toContain(body.redis);
+    expect(['up', 'down', 'unknown']).toContain(body.ingestion);
+    expect(['up', 'degraded', 'unknown']).toContain(body.ai);
   });
 
   it('responds with a request id header', async () => {

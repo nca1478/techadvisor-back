@@ -12,7 +12,7 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get()
-  @ApiOperation({ summary: 'API liveness and database reachability' })
+  @ApiOperation({ summary: 'API liveness plus db/redis/queue/AI availability (no live AI probe)' })
   @ApiOkResponse({ type: HealthResponseDto })
   check(): Promise<HealthResponseDto> {
     return this.healthService.check();

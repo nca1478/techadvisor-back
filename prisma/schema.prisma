@@ -645,6 +645,58 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+// --- AI observability (Fase 7, visibilidad operativa) --------------------------
+// Operational log of every AI/retrieval call. NEVER stores prompt, question,
+// answer or any user content: only metadata (type, provider, model, latency,
+// token counts, estimated cost, status, error code, optional session id).
+// Rows are append-only; purged by the retention cleanup job (see ADR 0039).
+
+/** Kind of instrumented call. */
+enum AiCallType {
+  EMBEDDING
+  LLM
+  RETRIEVAL
+}
+
+/** Outcome of one instrumented call. */
+enum AiCallStatus {
+  OK
+  ERROR
+}
+
+model AiCallLog {
+  id String @id @default(uuid()) @db.Uuid
+  type AiCallType
+  /** Provider id (e.g. `openai-compatible`, `fake`); `local` for retrieval. */
+  provider String
+  /** Model id (embedding/LLM model, or `hybrid-rrf-v1` for retrieval). */
+  model String
+  /** Wall-clock latency of the call. */
+  latencyMs Int @map("latency_ms")
+  /** Input tokens when the provider reports them; NULL otherwise. */
+  tokensIn Int? @map("tokens_in")
+  /** Output tokens when the provider reports them; NULL otherwise. */
+  tokensOut Int? @map("tokens_out")
+  /**
+   * Estimated USD cost from the configured per-1k-token tariffs (telemetry
+   * only, never billing). NULL when tariffs are unset or tokens unknown.
+   */
+  estimatedCost Float? @map("estimated_cost")
+  status AiCallStatus @default(OK)
+  /** Normalized error code (`AiErrorCode` for providers, class name else). */
+  errorCode String? @map("error_code")
+  /** Owning chat session id when known; plain id, never user content. */
+  sessionId String? @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([type, provider, model])
+  @@index([status])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("ai_call_logs")
+}
+
 // --- Reviews (Fase 6, reseñas y resumen) --------------------------------------
 // Customer reviews: only buyers of the product (an order in PAID or DELIVERED
 // containing the product) may review, once per product (unique

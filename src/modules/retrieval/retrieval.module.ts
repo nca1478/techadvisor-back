@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module.js';
+import { AiCallLoggerModule } from '../observability/ai-call-logger.module.js';
 import { ReindexModule } from '../reindex/reindex.module.js';
 import { RetrievalService } from './retrieval.service.js';
 
@@ -14,7 +15,7 @@ import { RetrievalService } from './retrieval.service.js';
  * (see ADR 0023).
  */
 @Module({
-  imports: [AiModule, ReindexModule],
+  imports: [AiModule, AiCallLoggerModule, ReindexModule],
   providers: [RetrievalService],
   exports: [RetrievalService],
 })

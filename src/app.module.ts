@@ -20,6 +20,7 @@ import { SearchModule } from './modules/search/search.module.js';
 import { AdvisorModule } from './modules/advisor/advisor.module.js';
 import { CompatibilityModule } from './modules/compatibility/compatibility.module.js';
 import { ReviewsModule } from './modules/reviews/reviews.module.js';
+import { ObservabilityModule } from './modules/observability/observability.module.js';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module.js';
     AdvisorModule,
     CompatibilityModule,
     ReviewsModule,
+    ObservabilityModule,
   ],
 })
 export class AppModule implements NestModule {
