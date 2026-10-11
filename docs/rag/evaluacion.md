@@ -8,6 +8,7 @@ mismo dataset. Decisión de diseño: ADR `0038-rag-evaluation-harness.md`.
 ```bash
 npm run eval -- --offline            # CI: adapters fake, sin red ni BD
 npm run eval -- --strict             # falla (exit 1) si no pasa umbrales
+npm run eval -- --thresholds ./mi-eval-thresholds.json --strict  # gates alternativos (experimentos locales, no CI)
 npm run eval -- --llm-provider openai-compatible --llm-model <id> \
   --embedding-provider openai-compatible --embedding-model <id> \
   --embedding-base-url ...           # comparación real entre modelos
@@ -52,7 +53,8 @@ Los reportes se escriben en `eval/results/<fecha>-<llm>__<embeddings>.json`
 | `factCoverage` | `mustContain` presentes en la respuesta | casos no abstenidos |
 | `latencyP50Ms / P95Ms` | ms por caso (retrieval + generación) | todos |
 
-Umbrales (`--strict`): alucinación ≤ 0, abstención ≥ 80%, citas ≥ 80%.
+Umbrales (`--strict`, desde `eval/thresholds.json`): recall@5 ≥ 90%,
+abstención ≥ 80%, citas ≥ 80%, alucinación ≤ 0.
 
 Notas de interpretación:
 
@@ -72,6 +74,37 @@ Notas de interpretación:
    reales, `--offline` para la línea base).
 2. Compara los `.json` (mismo esquema `version: 1`) o los resúmenes `.md`.
 3. Registra proveedor, modelo, fecha y métricas al adoptar un modelo nuevo.
+
+## Umbrales y CI anti-regresión
+
+Los gates viven en `eval/thresholds.json` (decisión: ADR
+`0041-rag-eval-thresholds-ci.md`). El CI ejecuta
+`npm run eval -- --offline --strict`: cualquier métrica por debajo de su
+umbral (o cualquier alucinación) rompe el job. El resumen se publica en el
+job summary y como comentario actualizado en el PR (upsert con el `gh` CLI,
+sin actions de terceros).
+
+El workflow `rag-eval-online` (nocturno + manual) corre la misma evaluación
+contra proveedores reales con secretos del repositorio
+(`LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY`, `LLM_BASE_URL`,
+`EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_API_KEY`,
+`EMBEDDING_BASE_URL`, `EMBEDDING_DIM` opcional, por defecto 1536). Los runs
+manuales aceptan overrides de proveedor/modelo por inputs. No bloquea PRs;
+sirve para comparar modelos con el mismo dataset.
+
+### Proceso de cambio de umbrales (obligatorio)
+
+1. Edita `eval/thresholds.json` (es el único lugar donde viven los gates;
+   el runner no tiene valores hardcodeados).
+2. **Subir** un umbral: permitido con justificación en la descripción del PR
+   (p. ej. el dataset creció y la línea base mejoró).
+3. **Bajar** un umbral: prohibido para hacer pasar un cambio sin un ADR que
+   lo justifique (causa, evidencia, impacto aceptado). Sin ese ADR, el PR se
+   rechaza aunque el CI pase.
+4. Tras el cambio, ejecuta `npm run eval -- --offline --strict` y adjunta el
+   resultado al PR/ADR.
+5. Si cambias `--k` en CI, recalibra `retrievalK`/`minRecallAtK`: el gate de
+   recall está calibrado para `k=5` (el runner avisa si difieren).
 
 ## Agregar casos
 
