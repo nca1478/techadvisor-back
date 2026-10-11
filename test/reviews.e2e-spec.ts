@@ -337,11 +337,16 @@ describe('Reviews (e2e)', () => {
       .get('/api/v1/admin/reviews?status=PENDING')
       .set('Authorization', `Bearer ${fixture.adminToken}`)
       .expect(200);
-    const body = res.body as { total: number; data: { status: string; userId: string }[] };
+    const body = res.body as {
+      total: number;
+      data: { status: string; userId: string; productId: string; productName: string }[];
+    };
     expect(body.total).toBeGreaterThanOrEqual(1);
     for (const entry of body.data) {
       expect(entry.status).toBe('PENDING');
       expect(typeof entry.userId).toBe('string');
+      expect(typeof entry.productName).toBe('string');
+      expect(entry.productName.length).toBeGreaterThan(0);
     }
   });
 });

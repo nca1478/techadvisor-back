@@ -49,6 +49,9 @@ export class AdminReviewDto extends ReviewDto {
 
   @ApiProperty({ description: 'Author user id (admin only, never public).' })
   userId!: string;
+
+  @ApiProperty({ description: 'Reviewed product name (default locale, for moderation display).' })
+  productName!: string;
 }
 
 export class AdminReviewListDto {

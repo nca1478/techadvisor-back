@@ -12,6 +12,7 @@ function reviewRow(overrides: Record<string, unknown> = {}) {
   return {
     id: '33333333-3333-4333-8333-333333333333',
     productId: PRODUCT_ID,
+    product: { name: 'Fixture Motherboard Z890' },
     userId: USER_ID,
     rating: 5,
     title: 'Great laptop',
@@ -194,6 +195,7 @@ describe('ReviewsService.moderateReview (moderation)', () => {
     const result = await service.moderateReview('review-id', 'PUBLISHED');
 
     expect(result.status).toBe('PUBLISHED');
+    expect(result.productName).toBe('Fixture Motherboard Z890');
     expect(syncProduct).toHaveBeenCalledWith(PRODUCT_ID);
     expect(refreshProduct).toHaveBeenCalledWith(PRODUCT_ID);
   });
@@ -256,6 +258,36 @@ describe('ReviewsService.moderateReview (moderation)', () => {
     await expect(service.moderateReview('missing', 'PUBLISHED')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('ReviewsService.listForAdmin (moderation list)', () => {
+  it('maps the joined product name into each row', async () => {
+    const rows = [reviewRow({ status: 'PENDING' })];
+    const findMany = vi.fn().mockResolvedValue(rows);
+    const prisma = {
+      review: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany,
+      },
+      $transaction: vi.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
+    } as unknown as PrismaService;
+    const service = new ReviewsService(
+      prisma,
+      { syncProduct: vi.fn() } as unknown as ReviewIngestionService,
+      { refreshProduct: vi.fn(), findSummary: vi.fn() } as unknown as ReviewSummaryService,
+    );
+
+    const result = await service.listForAdmin({ page: 1, limit: 10 });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ include: { product: { select: { name: true } } } }),
+    );
+    expect(result.total).toBe(1);
+    expect(result.data[0]).toMatchObject({
+      productId: PRODUCT_ID,
+      productName: 'Fixture Motherboard Z890',
+    });
   });
 });
 

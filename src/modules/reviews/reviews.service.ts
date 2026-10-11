@@ -34,6 +34,8 @@ type ReviewRow = {
   verifiedPurchase: boolean;
   status: string;
   createdAt: Date;
+  /** Joined product name (default locale) for admin display; absent on public reads. */
+  product?: { name: string } | null;
 };
 
 /**
@@ -158,6 +160,7 @@ export class ReviewsService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: query.limit,
+        include: { product: { select: { name: true } } },
       }),
     ]);
     return {
@@ -175,14 +178,21 @@ export class ReviewsService {
    * re-sync the REVIEW document and refresh the summary inline.
    */
   async moderateReview(id: string, status: 'PUBLISHED' | 'REJECTED'): Promise<AdminReviewDto> {
-    const row = await this.prisma.review.findUnique({ where: { id } });
+    const row = await this.prisma.review.findUnique({
+      where: { id },
+      include: { product: { select: { name: true } } },
+    });
     if (row === null) {
       throw new NotFoundException({ message: 'Review not found' });
     }
     if (row.status === status) {
       return toAdminDto(row);
     }
-    const updated = await this.prisma.review.update({ where: { id }, data: { status } });
+    const updated = await this.prisma.review.update({
+      where: { id },
+      data: { status },
+      include: { product: { select: { name: true } } },
+    });
     if (row.status === 'PUBLISHED' || status === 'PUBLISHED') {
       await this.afterPublishedChange(updated.productId);
     }
@@ -229,6 +239,7 @@ function toAdminDto(row: ReviewRow): AdminReviewDto {
   return {
     id: row.id,
     productId: row.productId,
+    productName: row.product?.name ?? '',
     rating: row.rating,
     title: row.title,
     body: row.body,
