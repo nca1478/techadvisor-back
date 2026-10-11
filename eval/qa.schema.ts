@@ -160,6 +160,7 @@ export const evalReportSchema = z.object({
     maxHallucinationRate: z.number(),
     minAbstentionAccuracy: z.number(),
     minCitationValidityRate: z.number(),
+    minRecallAtK: z.number(),
   }),
   thresholdsPassed: z.boolean(),
   cases: z.array(evalCaseResultSchema),

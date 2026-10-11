@@ -1,0 +1,9 @@
+{
+  "$comment": "Minimum RAG quality gates enforced by `npm run eval -- --strict` in CI. NEVER lower a value to make a failing change pass without a justifying ADR (see docs/rag/evaluacion.md).",
+  "version": 1,
+  "retrievalK": 5,
+  "minRecallAtK": 0.9,
+  "minAbstentionAccuracy": 0.8,
+  "minCitationValidityRate": 0.8,
+  "maxHallucinationRate": 0
+}

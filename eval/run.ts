@@ -23,6 +23,7 @@ import {
 import { FakeEmbeddingAdapter } from '../src/modules/ai/adapters/fake-embedding.adapter.js';
 import { FakeLlmAdapter } from '../src/modules/ai/adapters/fake-llm.adapter.js';
 import { runHarness } from './offline-harness.js';
+import { checkThresholds, loadThresholds } from './thresholds.js';
 import {
   checkCitationsValid,
   checkHallucination,
@@ -35,11 +36,6 @@ import {
 import { parseEvalCaseLine, type EvalCase, type EvalReport } from './qa.schema.js';
 
 const EVAL_VERSION = 1;
-/** Hallucination budget: invented prices/ids must never happen. */
-const MAX_HALLUCINATION_RATE = 0;
-/** Minimum abstention accuracy and citation validity to pass CI (`--strict`). */
-const MIN_ABSTENTION_ACCURACY = 0.8;
-const MIN_CITATION_VALIDITY_RATE = 0.8;
 
 const EVAL_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -52,6 +48,7 @@ interface CliOptions {
   dataset: string;
   resultsDir: string;
   strict: boolean;
+  thresholdsPath: string;
   llmProvider?: string;
   llmModel?: string;
   embeddingProvider?: string;
@@ -68,6 +65,7 @@ function parseArgs(argv: string[]): CliOptions {
     dataset: join(EVAL_DIR, 'qa.jsonl'),
     resultsDir: join(EVAL_DIR, 'results'),
     strict: false,
+    thresholdsPath: join(EVAL_DIR, 'thresholds.json'),
   };
   const takeValue = (key: string, value: string | undefined, i: number): [string, number] => {
     if (value !== undefined && value !== '') {
@@ -132,6 +130,12 @@ function parseArgs(argv: string[]): CliOptions {
         opts.resultsDir = resolve(v);
         break;
       }
+      case '--thresholds': {
+        const [v, j] = takeValue(key, inline, i);
+        i = j;
+        opts.thresholdsPath = resolve(v);
+        break;
+      }
       case '--llm-provider': {
         const [v, j] = takeValue(key, inline, i);
         i = j;
@@ -181,6 +185,7 @@ Usage: npm run eval -- [flags]
   --type TYPE             Run only one case type.
   --dataset PATH          Dataset path (default eval/qa.jsonl).
   --results-dir PATH      Report output dir (default eval/results).
+  --thresholds PATH       Quality gates file (default eval/thresholds.json).
   --strict                Exit 1 when quality thresholds fail.
   --help                  Show this help.`);
 }
@@ -354,10 +359,20 @@ async function main(): Promise<void> {
       95,
     ),
   };
-  const thresholdsPassed =
-    metrics.hallucinationRate <= MAX_HALLUCINATION_RATE &&
-    metrics.abstentionAccuracy >= MIN_ABSTENTION_ACCURACY &&
-    metrics.citationValidityRate >= MIN_CITATION_VALIDITY_RATE;
+  // Quality gates come from the versioned file (never hardcoded): CI runs
+  // with `--strict` so any metric below its threshold breaks the build.
+  // Lowering a threshold to greenwash a change requires a justifying ADR.
+  const thresholds = loadThresholds(opts.thresholdsPath);
+  if (opts.k !== thresholds.retrievalK) {
+    console.warn(
+      `eval warning: --k=${String(opts.k)} differs from thresholds.json retrievalK=${String(thresholds.retrievalK)}; ` +
+        `the recall gate (≥ ${thresholds.minRecallAtK.toFixed(2)}) was calibrated for k=${String(thresholds.retrievalK)}.`,
+    );
+  }
+  const { passed: thresholdsPassed, failures: thresholdFailures } = checkThresholds(
+    metrics,
+    thresholds,
+  );
 
   const countBy = (key: (c: EvalCase) => string): Record<string, number> => {
     const counts: Record<string, number> = {};
@@ -386,9 +401,10 @@ async function main(): Promise<void> {
     retrievalK: opts.k,
     metrics,
     thresholds: {
-      maxHallucinationRate: MAX_HALLUCINATION_RATE,
-      minAbstentionAccuracy: MIN_ABSTENTION_ACCURACY,
-      minCitationValidityRate: MIN_CITATION_VALIDITY_RATE,
+      maxHallucinationRate: thresholds.maxHallucinationRate,
+      minAbstentionAccuracy: thresholds.minAbstentionAccuracy,
+      minCitationValidityRate: thresholds.minCitationValidityRate,
+      minRecallAtK: thresholds.minRecallAtK,
     },
     thresholdsPassed,
     cases: caseResults,
@@ -405,14 +421,15 @@ async function main(): Promise<void> {
   console.log(
     [
       `eval: ${String(selected.length)} cases (k=${String(opts.k)}, offline=${String(opts.offline)})`,
-      `  recall@${String(opts.k)}      ${pct(metrics.recallAtK)}`,
+      `  recall@${String(opts.k)}      ${pct(metrics.recallAtK)} (min ${pct(thresholds.minRecallAtK)})`,
       `  mrr                 ${metrics.mrr.toFixed(3)}`,
-      `  abstention accuracy ${pct(metrics.abstentionAccuracy)}`,
-      `  citation validity   ${pct(metrics.citationValidityRate)}`,
-      `  hallucination rate  ${pct(metrics.hallucinationRate)} (budget ${pct(MAX_HALLUCINATION_RATE)})`,
+      `  abstention accuracy ${pct(metrics.abstentionAccuracy)} (min ${pct(thresholds.minAbstentionAccuracy)})`,
+      `  citation validity   ${pct(metrics.citationValidityRate)} (min ${pct(thresholds.minCitationValidityRate)})`,
+      `  hallucination rate  ${pct(metrics.hallucinationRate)} (max ${pct(thresholds.maxHallucinationRate)})`,
       `  fact coverage       ${pct(metrics.factCoverage)}`,
       `  latency p50/p95     ${metrics.latencyP50Ms.toFixed(1)}ms / ${metrics.latencyP95Ms.toFixed(1)}ms`,
-      `  thresholds: ${thresholdsPassed ? 'PASS' : 'FAIL'}`,
+      `  thresholds (${opts.thresholdsPath}): ${thresholdsPassed ? 'PASS' : 'FAIL'}`,
+      ...thresholdFailures.map((failure) => `  gate failed: ${failure}`),
       `  report: ${jsonPath}`,
       `  summary: ${mdPath}`,
     ].join('\n'),
@@ -444,7 +461,7 @@ Dataset: \`${report.dataset.path}\` — ${String(report.dataset.cases)} cases, k
 
 | metric | value | threshold |
 |---|---|---|
-| recall@${String(report.retrievalK)} | ${pct(report.metrics.recallAtK)} | — |
+| recall@${String(report.retrievalK)} | ${pct(report.metrics.recallAtK)} | ≥ ${pct(report.thresholds.minRecallAtK)} |
 | MRR | ${report.metrics.mrr.toFixed(3)} | — |
 | abstention accuracy | ${pct(report.metrics.abstentionAccuracy)} | ≥ ${pct(report.thresholds.minAbstentionAccuracy)} |
 | citation validity | ${pct(report.metrics.citationValidityRate)} | ≥ ${pct(report.thresholds.minCitationValidityRate)} |
