@@ -8,6 +8,12 @@ on:
   push:
   pull_request:
 
+# `pull-requests: write` lets the job upsert the RAG-eval summary comment
+# with the preinstalled `gh` CLI (no third-party actions, see ADR 0041).
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -54,5 +60,42 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:e2e
-      - run: npm run eval -- --offline --strict
+      - name: RAG eval (offline, strict)
+        run: npm run eval -- --offline --strict
+      - name: RAG eval summary
+        if: always()
+        run: |
+          latest="$(ls -t eval/results/*.md 2>/dev/null | head -n 1 || true)"
+          if [ -z "$latest" ]; then
+            echo "No RAG eval report was generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## RAG evaluation (offline, strict)"
+            echo ""
+            cat "$latest"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "EVAL_SUMMARY_FILE=$latest" >> "$GITHUB_ENV"
+      - name: Comment RAG eval on PR
+        if: github.event_name == 'pull_request' && always()
+        # Fork PRs get a read-only token, so the comment may fail there;
+        # the strict eval gate above still fails the job on regressions.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest="${EVAL_SUMMARY_FILE:-$(ls -t eval/results/*.md 2>/dev/null | head -n 1 || true)}"
+          if [ -z "$latest" ]; then
+            echo "No RAG eval report to comment."
+            exit 0
+          fi
+          pr_number="${{ github.event.pull_request.number }}"
+          marker="<!-- rag-eval-summary -->"
+          body="$(printf '%s\n\n%s\n' "$marker" "$(cat "$latest")")"
+          existing="$(gh api "repos/${{ github.repository }}/issues/$pr_number/comments" --paginate -q '[.[] | select(.body | contains("<!-- rag-eval-summary -->"))][0].id // empty')"
+          if [ -n "$existing" ]; then
+            echo "$body" | gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$existing" -F body=@- --jq .html_url
+          else
+            echo "$body" | gh api -X POST "repos/${{ github.repository }}/issues/$pr_number/comments" -F body=@- --jq .html_url
+          fi
       - run: npm run build

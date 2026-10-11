@@ -1,0 +1,95 @@
+# RAG eval against real providers (Fase 7) — nightly schedule + manual runs.
+# Provider config comes from repository secrets (never logged); optional
+# workflow_dispatch inputs override the secrets for one-off model
+# comparisons. Uses only preinstalled tooling (no third-party actions).
+name: rag-eval-online
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      llm-provider:
+        description: 'Override LLM_PROVIDER secret (empty = use secret)'
+        required: false
+        default: ''
+      llm-model:
+        description: 'Override LLM_MODEL secret (empty = use secret)'
+        required: false
+        default: ''
+      embedding-provider:
+        description: 'Override EMBEDDING_PROVIDER secret (empty = use secret)'
+        required: false
+        default: ''
+      embedding-model:
+        description: 'Override EMBEDDING_MODEL secret (empty = use secret)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  eval-online:
+    runs-on: ubuntu-latest
+
+    env:
+      BASE_CURRENCY: USD
+      SUPPORTED_CURRENCIES: USD,EUR
+      DEFAULT_LOCALE: en
+      SUPPORTED_LOCALES: en,es
+      LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      EMBEDDING_PROVIDER: ${{ secrets.EMBEDDING_PROVIDER }}
+      EMBEDDING_MODEL: ${{ secrets.EMBEDDING_MODEL }}
+      EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+      EMBEDDING_BASE_URL: ${{ secrets.EMBEDDING_BASE_URL }}
+      EMBEDDING_DIM: ${{ secrets.EMBEDDING_DIM }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check provider secrets
+        run: |
+          : "${EMBEDDING_DIM:=1536}"
+          echo "EMBEDDING_DIM=$EMBEDDING_DIM" >> "$GITHUB_ENV"
+          missing=""
+          for var in LLM_PROVIDER LLM_MODEL LLM_API_KEY LLM_BASE_URL EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_API_KEY EMBEDDING_BASE_URL; do
+            if [ -z "${!var}" ]; then missing="$missing $var"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing repository secrets:$missing (see docs/rag/evaluacion.md)." >&2
+            exit 1
+          fi
+
+      - name: RAG eval (online, strict)
+        run: |
+          args=(--strict)
+          [ -n "${{ inputs.llm-provider }}" ] && args+=(--llm-provider "${{ inputs.llm-provider }}")
+          [ -n "${{ inputs.llm-model }}" ] && args+=(--llm-model "${{ inputs.llm-model }}")
+          [ -n "${{ inputs.embedding-provider }}" ] && args+=(--embedding-provider "${{ inputs.embedding-provider }}")
+          [ -n "${{ inputs.embedding-model }}" ] && args+=(--embedding-model "${{ inputs.embedding-model }}")
+          npm run eval -- "${args[@]}"
+
+      - name: RAG eval summary
+        if: always()
+        run: |
+          latest="$(ls -t eval/results/*.md 2>/dev/null | head -n 1 || true)"
+          if [ -z "$latest" ]; then
+            echo "No RAG eval report was generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## RAG evaluation (online, strict)"
+            echo ""
+            cat "$latest"
+          } >> "$GITHUB_STEP_SUMMARY"
