@@ -549,8 +549,9 @@ model ReindexJob {
 // (max 1000 chars, validated at the API edge), `productId` the asked-about
 // product, `reason` why no answer was given (`no_evidence` when retrieval
 // returned nothing, `below_threshold` when the best hit scored under
-// `ADVISOR_ABSTAIN_MIN_SCORE`). Rows are append-only: never updated or
-// deleted by application code; the admin panel surfaces them (Fase 7).
+// `ADVISOR_ABSTAIN_MIN_SCORE`). Rows are INSERTed by the advisor and only
+// ever UPDATE the triage `status` from the admin panel (Fase 7, see ADR
+// 0040): `NEW` → `IN_REVIEW` → `RESOLVED`. Content columns are never edited.
 
 model UnansweredQuery {
   id String @id @default(uuid()) @db.Uuid
@@ -559,10 +560,13 @@ model UnansweredQuery {
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   sessionId String? @map("session_id") @db.Uuid
   reason String
+  /** Triage state, managed only from `/admin/advisor/*` (ADR 0040). */
+  status String @default("NEW")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([productId])
+  @@index([status])
   @@index([createdAt])
   @@map("unanswered_queries")
 }
