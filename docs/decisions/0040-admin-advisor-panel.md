@@ -34,6 +34,11 @@ guarda contenido, ADR 0039).
   detalle explícito. El enlace a conversación (`sessions/:id`) devuelve rol,
   fecha y extracto de 200 caracteres por mensaje — nunca el contenido
   completo; sesiones purgadas o desconocidas dan el mismo 404.
+- Votos con sesión: `AdvisorFeedback.sessionId` (migración aditiva
+  `20261012010000_feedback_session_id`, columna plana sin FK como en
+  `UnansweredQuery`) guarda la sesión de la respuesta votada cuando la
+  superficie la conoce (el widget de producto la envía); el panel enlaza el
+  voto con su conversación minimizada.
 - Métricas (`metrics`): abstenciones abiertas por estado/motivo, votos
   up/down con tasa de satisfacción (`null` sin votos) y top-10 de preguntas
   abiertas normalizadas por frecuencia. Solo conteos y extractos ya visibles

@@ -70,6 +70,12 @@ export class AdvisorFeedbackRequestDto {
 
   @ApiProperty({ enum: ['up', 'down'], example: 'up', description: 'Vote direction.' })
   value!: 'up' | 'down';
+
+  @ApiPropertyOptional({
+    example: 'session-id',
+    description: 'Chat session the voted answer belongs to, when the voting surface is sessioned.',
+  })
+  sessionId?: string;
 }
 
 export class AdvisorFeedbackResponseDto {

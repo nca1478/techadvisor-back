@@ -56,6 +56,13 @@ export const feedbackBodySchema = z.object({
     .max(20000, { error: 'answer must be at most 20000 characters long' }),
   abstained: z.boolean({ error: 'abstained is required' }),
   value: z.enum(['up', 'down'], { error: "value must be 'up' or 'down'" }),
+  /**
+   * Chat session the voted answer belongs to (when the vote comes from a
+   * sessioned surface like the product widget). Plain id, never validated
+   * for ownership here: votes are unauthenticated by design and the id
+   * only powers the admin-side minimized conversation link (ADR 0040).
+   */
+  sessionId: z.uuid({ error: 'sessionId must be a valid UUID' }).optional(),
 });
 
 export type FeedbackInput = z.output<typeof feedbackBodySchema>;

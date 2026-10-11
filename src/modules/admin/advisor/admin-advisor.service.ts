@@ -37,6 +37,7 @@ type UnansweredRow = {
 type FeedbackRow = {
   id: string;
   productId: string | null;
+  sessionId: string | null;
   query: string;
   answer: string;
   abstained: boolean;
@@ -195,6 +196,7 @@ export class AdminAdvisorService {
     return {
       id: minimized.id,
       productId: minimized.productId,
+      sessionId: minimized.sessionId,
       value: minimized.value,
       abstained: minimized.abstained,
       queryExcerpt: minimized.queryExcerpt,
@@ -293,6 +295,7 @@ function toFeedbackDto(row: FeedbackRow): AdminAdvisorFeedbackDto {
   return {
     id: row.id,
     productId: row.productId,
+    sessionId: row.sessionId,
     value: row.value,
     abstained: row.abstained,
     queryExcerpt: excerpt(row.query, FEEDBACK_QUERY_EXCERPT),

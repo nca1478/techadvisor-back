@@ -588,6 +588,13 @@ model AdvisorFeedback {
   abstained Boolean @default(false)
   /** 'up' | 'down', validated at the API edge. */
   value String
+  /**
+   * Chat session the voted answer belongs to (plain id, no FK — purged
+   * sessions leave it dangling and the admin viewer 404s, like
+   * `UnansweredQuery.sessionId`). Lets the admin panel link a vote to its
+   * minimized conversation (ADR 0040).
+   */
+  sessionId String? @map("session_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

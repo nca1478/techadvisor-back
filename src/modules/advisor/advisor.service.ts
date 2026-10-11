@@ -179,6 +179,7 @@ export class AdvisorService {
         answer: input.answer,
         abstained: input.abstained,
         value: input.value,
+        sessionId: input.sessionId ?? null,
       },
     });
     this.logger.debug(

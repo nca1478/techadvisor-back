@@ -107,6 +107,7 @@ describe('Admin advisor panel (e2e)', () => {
           answer: `${marker} respuesta ${value} `.padEnd(600, '.'),
           abstained,
           value,
+          sessionId: session.id,
         },
       });
       feedbackIds.push(created.id);
@@ -232,12 +233,15 @@ describe('Admin advisor panel (e2e)', () => {
     expect(listBody.data[0]).not.toHaveProperty('answer');
     expect(listBody.data[0]).toHaveProperty('queryExcerpt');
     expect(listBody.data[0]).toHaveProperty('answerExcerpt');
+    // Votes carry their session so the panel can link the conversation.
+    expect(listBody.data[0]?.['sessionId']).toBe(sessionWithHistory);
 
     const detail = await request(app.getHttpServer())
       .get(`/api/v1/admin/advisor/feedback/${feedbackIds[0] ?? ''}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect((detail.body as { query: string }).query).toContain(marker);
+    expect((detail.body as { sessionId: string }).sessionId).toBe(sessionWithHistory);
     await request(app.getHttpServer())
       .get('/api/v1/admin/advisor/feedback/00000000-0000-4000-8000-000000000000')
       .set('Authorization', `Bearer ${adminToken}`)

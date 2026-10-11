@@ -98,6 +98,13 @@ export class AdminAdvisorFeedbackDto {
   @ApiPropertyOptional({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6', nullable: true })
   productId!: string | null;
 
+  @ApiPropertyOptional({
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    nullable: true,
+    description: 'Chat session of the voted answer; backs the minimized conversation link.',
+  })
+  sessionId!: string | null;
+
   @ApiProperty({ example: 'up', enum: ['up', 'down'] })
   value!: string;
 
@@ -227,6 +234,7 @@ export class AdminAdvisorMetricsDto {
   @ApiProperty({
     example: 0.75,
     nullable: true,
+    type: Number,
     description: 'up / total, null while no votes exist.',
   })
   satisfactionRate!: number | null;

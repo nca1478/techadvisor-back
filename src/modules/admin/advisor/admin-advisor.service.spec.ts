@@ -19,6 +19,7 @@ function feedbackRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'fb-id',
     productId: null,
+    sessionId: null,
     query: 'q',
     answer: 'a',
     abstained: false,
