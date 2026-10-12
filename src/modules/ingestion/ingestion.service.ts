@@ -10,6 +10,7 @@ import {
 import { APP_CONFIG } from '../../config/app-config.module.js';
 import type { AppConfig } from '../../config/env.schema.js';
 import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma as PrismaNamespace } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   assertEmbeddingColumnIdentifier,
@@ -240,11 +241,26 @@ export class IngestionService {
       });
       return { documentId, status: 'READY', chunks: chunks.length };
     } catch (error) {
+      // The document may be gone (stale Redis job after a DB reset, or a
+      // concurrent delete): marking it FAILED would throw P2025 and mask the
+      // original failure, so rethrow directly instead.
+      if (isMissingDocumentError(error)) {
+        throw error;
+      }
       const message = this.errorMessage(error);
-      await this.prisma.document.update({
-        where: { id: documentId },
-        data: { status: 'FAILED', error: message },
-      });
+      try {
+        await this.prisma.document.update({
+          where: { id: documentId },
+          data: { status: 'FAILED', error: message },
+        });
+      } catch (updateError) {
+        if (isMissingDocumentError(updateError)) {
+          throw error;
+        }
+        this.logger.warn(
+          `Could not mark document ${documentId} as FAILED: ${this.errorMessage(updateError)}`,
+        );
+      }
       if (error instanceof ExtractionError || error instanceof IngestionError) {
         throw error;
       }
@@ -260,6 +276,20 @@ export class IngestionService {
         : 'Unknown ingestion failure';
     return raw.length > MAX_ERROR_LENGTH ? `${raw.slice(0, MAX_ERROR_LENGTH)}…` : raw;
   }
+}
+
+/**
+ * True when the error means "the document row is gone": an explicit
+ * `NotFoundException` or Prisma P2025 from an `update` racing a delete.
+ */
+export function isMissingDocumentError(error: unknown): boolean {
+  if (error instanceof NotFoundException) {
+    return true;
+  }
+  if (error instanceof PrismaNamespace.PrismaClientKnownRequestError && error.code === 'P2025') {
+    return true;
+  }
+  return false;
 }
 
 /**
