@@ -17,6 +17,13 @@ import type { SearchResponseDto, SearchResultDto } from './dto/search.dto.js';
 const RETRIEVAL_TOP_N = 30;
 /** Evidence fragment length: enough context for a card, bounded for the payload. */
 const SNIPPET_MAX_LENGTH = 280;
+/**
+ * Base score for SQL lexical matches (name/brand/SKU/description). It sits
+ * far above any RRF score (consensus of both branches is ~0.03), so exact
+ * catalog matches always outrank pure semantic neighbours. Products with
+ * both add their RRF score on top, keeping chunk evidence first on ties.
+ */
+const LEXICAL_MATCH_SCORE = 1;
 
 type SearchProductRow = Prisma.ProductGetPayload<{
   include: {
@@ -29,14 +36,19 @@ type SearchProductRow = Prisma.ProductGetPayload<{
 }>;
 
 /**
- * Natural-language catalog search (see ADR 0022).
+ * Natural-language catalog search (see ADRs 0022 and 0042).
  *
- * Flow: hybrid retrieval (`RetrievalService`) → group chunks by product →
- * hydrate every product from SQL (price, availability, primary image —
- * never from chunks) → post-filter by category slug / resolved max price →
- * order by score. When the embedding provider fails, the service degrades
- * to full-text-only retrieval and reports `degraded: true` instead of
- * failing the request. No LLM is involved.
+ * Flow: hybrid retrieval (`RetrievalService`) + SQL lexical matches
+ * (name/brand/SKU/description, case-insensitive) → hydrate every product
+ * from SQL (price, availability, primary image — never from chunks) →
+ * post-filter by category slug / resolved max price → order by score. When
+ * lexical matches exist they win: pure vector neighbours without textual
+ * support are dropped, so brand/name queries (e.g. "Kingston") never return
+ * unrelated products just because their chunks are the closest vectors.
+ * With no lexical match the ranking stays purely semantic. When the
+ * embedding provider fails, the service degrades to full-text-only
+ * retrieval and reports `degraded: true` instead of failing the request.
+ * No LLM is involved.
  */
 @Injectable()
 export class SearchService {
@@ -59,32 +71,32 @@ export class SearchService {
 
     const { hits, degraded } = await this.retrieve(query.q, locale);
     const grouped = groupByProduct(hits);
-    if (grouped.size === 0) {
+    const lexicalRows = await this.findLexicalMatches(query.q, locale, currency, query.limit);
+    if (grouped.size === 0 && lexicalRows.length === 0) {
       return { query: query.q, degraded, locale, currency, results: [] };
     }
 
-    const rows = await this.prisma.product.findMany({
-      where: { id: { in: [...grouped.keys()] }, status: 'ACTIVE' },
-      include: {
-        brand: true,
-        category: {
-          include: {
-            parent: { select: { slug: true } },
-            translations: { where: { locale } },
-          },
-        },
-        images: { orderBy: { position: 'asc' } },
-        prices: { where: { currency } },
-        translations: { where: { locale } },
-      },
-    });
+    const lexicalIds = new Set(lexicalRows.map((row) => row.id));
+    // With lexical matches, pure semantic neighbours are dropped below, so
+    // their hydration is skipped entirely (one query saved per search).
+    const ragOnlyIds =
+      lexicalRows.length > 0 ? [] : [...grouped.keys()].filter((id) => !lexicalIds.has(id));
+    const ragRows =
+      ragOnlyIds.length > 0
+        ? await this.prisma.product.findMany({
+            where: { id: { in: ragOnlyIds }, status: 'ACTIVE' },
+            include: this.productInclude(locale, currency),
+          })
+        : [];
+    const rows: SearchProductRow[] = [...lexicalRows, ...ragRows];
 
     const availability = await this.inventory.getAvailabilityMap(rows.map((row) => row.id));
 
     const results: SearchResultDto[] = [];
     for (const row of rows) {
       const evidence = grouped.get(row.id);
-      if (evidence === undefined) {
+      const isLexical = lexicalIds.has(row.id);
+      if (evidence === undefined && !isLexical) {
         continue;
       }
       const price = resolvePrice(
@@ -100,6 +112,29 @@ export class SearchService {
       if (query.category !== undefined && row.category.slug !== query.category) {
         continue;
       }
+      if (isLexical) {
+        // Catalog match wins over semantic neighbours: base score above any
+        // RRF value, plus the chunk score when the product has both, so
+        // cited evidence keeps ranking first. Snippet prefers the chunk
+        // fragment (citable) and falls back to the SQL description.
+        results.push({
+          product: this.toListItem(
+            row,
+            locale,
+            currency,
+            toAvailability(availability.get(row.id) ?? 0),
+          ),
+          score: LEXICAL_MATCH_SCORE + (evidence?.score ?? 0),
+          snippet:
+            evidence !== undefined
+              ? toSnippet(evidence.content)
+              : toSnippet(row.description.trim() === '' ? row.name : row.description),
+        });
+        continue;
+      }
+      if (evidence === undefined) {
+        continue;
+      }
       results.push({
         product: this.toListItem(
           row,
@@ -110,6 +145,26 @@ export class SearchService {
         score: evidence.score,
         snippet: toSnippet(evidence.content),
       });
+    }
+
+    if (lexicalIds.size > 0) {
+      // Lexical matches exist: drop pure semantic neighbours (they have no
+      // textual support for this query) and order matches deterministically.
+      const lexicalResults = results.filter((result) => lexicalIds.has(result.product.id));
+      lexicalResults.sort(
+        (left, right) =>
+          right.score - left.score || left.product.name.localeCompare(right.product.name),
+      );
+      this.logger.debug(
+        `search: hits=${String(hits.length)} products=${String(lexicalResults.length)} degraded=${String(degraded)} lexical=${String(lexicalIds.size)}`,
+      );
+      return {
+        query: query.q,
+        degraded,
+        locale,
+        currency,
+        results: lexicalResults.slice(0, query.limit),
+      };
     }
 
     results.sort((left, right) => right.score - left.score);
@@ -142,6 +197,55 @@ export class SearchService {
       this.logger.warn(`search: embedding provider failed (${error.code}), degrading to full-text`);
       return { hits: await this.retrieval.searchFulltextOnly(input), degraded: true };
     }
+  }
+
+  /** Shared hydration shape: price, availability and image always come from SQL. */
+  private productInclude(locale: string, currency: string) {
+    return {
+      brand: true,
+      category: {
+        include: {
+          parent: { select: { slug: true } },
+          translations: { where: { locale } },
+        },
+      },
+      images: { orderBy: { position: 'asc' } },
+      prices: { where: { currency } },
+      translations: { where: { locale } },
+    } as const;
+  }
+
+  /**
+   * Case-insensitive catalog matches over product name, description, SKU,
+   * brand (name/slug) and translated name/description. Fully parameterized
+   * via Prisma (`contains`, no raw SQL), ACTIVE products only, deterministic
+   * name order, capped at `limit`. These matches rescue products that have
+   * no chunks indexed yet (see ADR 0022: the RAG corpus only "sees" products
+   * with READY chunks) and outrank pure vector neighbours.
+   */
+  private async findLexicalMatches(
+    q: string,
+    locale: string,
+    currency: string,
+    limit: number,
+  ): Promise<SearchProductRow[]> {
+    return this.prisma.product.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+          { sku: { contains: q, mode: 'insensitive' } },
+          { brand: { name: { contains: q, mode: 'insensitive' } } },
+          { brand: { slug: { contains: q, mode: 'insensitive' } } },
+          { translations: { some: { name: { contains: q, mode: 'insensitive' } } } },
+          { translations: { some: { description: { contains: q, mode: 'insensitive' } } } },
+        ],
+      },
+      include: this.productInclude(locale, currency),
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: limit,
+    });
   }
 
   private requestedCurrency(currency: string | undefined): string {
@@ -253,4 +357,4 @@ export function toSnippet(content: string, maxLength: number = SNIPPET_MAX_LENGT
   return `${collapsed.slice(0, maxLength).trimEnd()}…`;
 }
 
-export { RETRIEVAL_TOP_N, SNIPPET_MAX_LENGTH };
+export { LEXICAL_MATCH_SCORE, RETRIEVAL_TOP_N, SNIPPET_MAX_LENGTH };

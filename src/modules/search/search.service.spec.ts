@@ -61,6 +61,7 @@ function buildService(options: {
   hits?: RetrievalHit[];
   fulltextHits?: RetrievalHit[];
   rows?: ReturnType<typeof productRow>[];
+  lexicalRows?: ReturnType<typeof productRow>[];
   embedError?: Error;
 }) {
   const searchMock = options.embedError
@@ -71,16 +72,33 @@ function buildService(options: {
     search: searchMock,
     searchFulltextOnly: fulltextMock,
   } as unknown as RetrievalService;
+  const findManyCalls: unknown[] = [];
   const prisma = {
-    product: { findMany: vi.fn().mockResolvedValue(options.rows ?? []) },
+    product: {
+      findMany: vi
+        .fn()
+        .mockImplementation((args?: { where?: { id?: { in?: string[] }; OR?: unknown } }) => {
+          // The lexical call carries an OR filter; RAG hydration filters by
+          // id list. Mirrors production, where each query hits its own rows.
+          findManyCalls.push(args);
+          if (args?.where !== undefined && 'OR' in args.where) {
+            return Promise.resolve(options.lexicalRows ?? []);
+          }
+          const ids = args?.where?.id?.in;
+          const rows = options.rows ?? [];
+          return Promise.resolve(
+            ids === undefined ? rows : rows.filter((row) => ids.includes(row.id)),
+          );
+        }),
+    },
   } as unknown as PrismaService;
   const inventory = {
     getAvailabilityMap: vi
       .fn()
-      .mockResolvedValue(new Map((options.rows ?? []).map((row) => [row.id, 5]))),
+      .mockImplementation((ids: string[]) => Promise.resolve(new Map(ids.map((id) => [id, 5])))),
   } as unknown as InventoryService;
   const service = new SearchService(retrieval, prisma, inventory, CONFIG);
-  return { service, searchMock, fulltextMock, prisma };
+  return { service, searchMock, fulltextMock, prisma, findManyCalls };
 }
 
 describe('groupByProduct', () => {
@@ -197,5 +215,82 @@ describe('SearchService (unit, mocked retrieval and database)', () => {
 
     expect(response.results).toHaveLength(1);
     expect(response.results[0]?.product).toMatchObject({ priceAmount: 80_00, currency: 'EUR' });
+  });
+
+  it('returns empty when neither retrieval nor the catalog match', async () => {
+    const { service } = buildService({ hits: [], rows: [] });
+
+    const response = await service.search({ q: 'zzz-no-such-thing', limit: 12 });
+
+    expect(response.results).toEqual([]);
+    expect(response.degraded).toBe(false);
+  });
+
+  it('drops unrelated vector neighbours when the catalog matches (brand query)', async () => {
+    // Regression test for "Kingston" returning Asus/Seasonic: the only RAG
+    // chunks belong to other products, but the catalog has brand matches.
+    const kingston = productRow('p-kingston', {
+      sku: 'KIN-FURY-DDR5',
+      name: 'Kingston Fury Beast DDR5 32GB',
+      description: 'Kingston Fury Beast DDR5 32GB (2x16GB) 5200MT/s',
+      brand: { id: 'brand-kingston', name: 'Kingston', slug: 'kingston' },
+    });
+    const { service, findManyCalls } = buildService({
+      hits: [hit('a', 'p-unrelated', 0.016, '## Specifications')],
+      rows: [productRow('p-unrelated')],
+      lexicalRows: [kingston],
+    });
+
+    const response = await service.search({ q: 'Kingston', limit: 12 });
+
+    expect(response.results.map((result) => result.product.id)).toEqual(['p-kingston']);
+    expect(response.results[0]).toMatchObject({
+      score: 1,
+      product: { inStock: true, imageUrl: 'https://cdn.example.com/p.jpg' },
+    });
+    expect(response.results[0]?.snippet).toContain('Kingston Fury Beast');
+    // RAG hydration is skipped when lexical matches exist (one query saved).
+    expect(findManyCalls).toHaveLength(1);
+  });
+
+  it('keeps the chunk snippet when a product matches both lexical and retrieval', async () => {
+    const row = productRow('p1');
+    const { service } = buildService({
+      hits: [hit('a', 'p1', 0.03, 'chunk evidence')],
+      rows: [row],
+      lexicalRows: [row],
+    });
+
+    const response = await service.search({ q: 'Product p1', limit: 12 });
+
+    expect(response.results).toHaveLength(1);
+    expect(response.results[0]).toMatchObject({ score: 1.03, snippet: 'chunk evidence' });
+  });
+
+  it('orders lexical matches deterministically and applies filters to them', async () => {
+    const { service } = buildService({
+      hits: [hit('a', 'p-unrelated', 0.016)],
+      rows: [productRow('p-unrelated')],
+      lexicalRows: [
+        productRow('p2', {
+          name: 'Kingston ValueRAM DDR4 8GB',
+          category: { id: 'c2', name: 'PC', slug: 'pc', parent: null, translations: [] },
+          priceAmount: 50_00,
+        }),
+        productRow('p1', {
+          name: 'Kingston Fury Beast DDR5 32GB',
+          category: { id: 'c1', name: 'Audio', slug: 'audio', parent: null, translations: [] },
+        }),
+      ],
+    });
+
+    const all = await service.search({ q: 'Kingston', limit: 12 });
+    expect(all.results.map((result) => result.product.id)).toEqual(['p1', 'p2']);
+
+    const byCategory = await service.search({ q: 'Kingston', category: 'audio', limit: 12 });
+    expect(byCategory.results.map((result) => result.product.id)).toEqual(['p1']);
+
+    const byPrice = await service.search({ q: 'Kingston', maxPrice: 60_00, limit: 12 });
+    expect(byPrice.results.map((result) => result.product.id)).toEqual(['p2']);
   });
 });
