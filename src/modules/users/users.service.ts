@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PasswordService } from '../auth/password.service.js';
 import type { Role } from '../../generated/prisma/client.js';
@@ -66,6 +66,28 @@ export class UsersService {
   async findByEmail(email: string): Promise<SafeUser | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     return user ? toSafeUser(user) : null;
+  }
+
+  /**
+   * Updates the caller's own profile. Only `name` and `password` are
+   * accepted — `email` can never change here. Passwords are re-hashed;
+   * a stale token (row gone) surfaces as unauthorized, like `me()`.
+   */
+  async updateProfile(id: string, input: { name?: string; password?: string }): Promise<SafeUser> {
+    const data: { name?: string; passwordHash?: string } = {};
+    if (input.name !== undefined) {
+      data.name = input.name;
+    }
+    if (input.password !== undefined) {
+      data.passwordHash = await this.passwords.hash(input.password);
+    }
+    try {
+      const user = await this.prisma.user.update({ where: { id }, data });
+      return toSafeUser(user);
+    } catch {
+      // Prisma P2025 (row gone between auth and update): the token is stale.
+      throw new UnauthorizedException('Invalid or expired token');
+    }
   }
 
   /** Internal: full row including `passwordHash`, for the login check only. */
