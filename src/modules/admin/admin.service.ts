@@ -52,22 +52,6 @@ type AdminOrderRow = Prisma.OrderGetPayload<{
   };
 }>;
 
-/**
- * Back-office writes (see ADR 0013). Every route using this service sits
- * behind `JwtAuthGuard + @Roles('ADMIN')`.
- *
- * - Products are never physically deleted: archival is a status change, so
- *   `OrderItem` rows (frozen prices + a live product join for names) keep
- *   working after `ARCHIVED`.
- * - Base prices are always written in `BASE_CURRENCY`; other currencies are
- *   fixed override rows (ADR 0007). Base texts hold `DEFAULT_LOCALE`;
- *   translations hold other supported locales only (ADR 0008).
- * - `specs` is validated against the Zod schema of the effective category.
- * - Every stock adjustment appends exactly one `InventoryMovement` row.
- * - Order status changes go through `OrdersService.transitionOrder`, so the
- *   state machine is enforced in one place; transitions into `PAID` are
- *   rejected here (only the Stripe webhook marks orders as paid).
- */
 @Injectable()
 export class AdminService {
   constructor(
@@ -76,8 +60,6 @@ export class AdminService {
     private readonly specSheets: ProductSpecSheetService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
-
-  // --- Products ------------------------------------------------------------
 
   async listProducts(query: AdminProductListQuery): Promise<AdminProductListDto> {
     const where: Prisma.ProductWhereInput = {};
@@ -366,11 +348,6 @@ export class AdminService {
     });
   }
 
-  /**
-   * Single category for the back-office edit screen. Same shape as the
-   * list rows (`AdminCategoryDto`); 404s on unknown ids so the frontend
-   * can render its not-found page.
-   */
   async getCategoryById(id: string) {
     const row = await this.prisma.category.findUnique({
       where: { id },
@@ -458,8 +435,6 @@ export class AdminService {
     await this.prisma.category.delete({ where: { id } });
   }
 
-  // --- Brands --------------------------------------------------------------
-
   async listBrands() {
     return this.prisma.brand.findMany({ orderBy: [{ name: 'asc' }, { id: 'asc' }] });
   }
@@ -493,8 +468,6 @@ export class AdminService {
     await this.prisma.brand.delete({ where: { id } });
   }
 
-  // --- Inventory -----------------------------------------------------------
-
   async getInventory(productId: string) {
     await this.findProductOrThrow(productId);
     const row = await this.prisma.inventory.findUnique({ where: { productId } });
@@ -512,12 +485,6 @@ export class AdminService {
     });
   }
 
-  /**
-   * Applies a signed delta to the physical stock and appends the audit row
-   * in the same transaction. Never touches `reserved`; the DB CHECKs
-   * (`stock >= 0`, `reserved <= stock`) are the backstop behind the
-   * pre-flight validations below.
-   */
   async adjustInventory(productId: string, input: AdjustInventoryInput) {
     await this.findProductOrThrow(productId);
     const result = await this.prisma.$transaction(async (tx) => {
@@ -557,8 +524,6 @@ export class AdminService {
       movementId: result.movementId,
     };
   }
-
-  // --- Orders (admin) ------------------------------------------------------
 
   async listOrders(query: AdminOrderListQuery): Promise<AdminOrderListDto> {
     const where: Prisma.OrderWhereInput = {};
@@ -631,8 +596,6 @@ export class AdminService {
     await this.orders.transitionOrder(id, to);
     return this.getOrderById(id);
   }
-
-  // --- Helpers -------------------------------------------------------------
 
   private async findProductOrThrow(id: string) {
     const row = await this.prisma.product.findUnique({
