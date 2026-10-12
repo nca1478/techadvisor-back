@@ -163,6 +163,13 @@ export class AdminController {
     return this.admin.createCategory(body);
   }
 
+  @Get('categories/:id')
+  @ApiOperation({ summary: 'Get a category by id (for the back-office edit screen)' })
+  @ApiOkResponse({ type: AdminCategoryDto })
+  getCategory(@Param(new ZodValidationPipe(uuidParamsSchema)) params: UuidParams) {
+    return this.admin.getCategoryById(params.id);
+  }
+
   @Patch('categories/:id')
   @ApiOperation({ summary: 'Edit a category (translations replace the whole set)' })
   @ApiOkResponse({ type: AdminCategoryDto })

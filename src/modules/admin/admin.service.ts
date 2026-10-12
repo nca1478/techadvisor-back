@@ -366,6 +366,22 @@ export class AdminService {
     });
   }
 
+  /**
+   * Single category for the back-office edit screen. Same shape as the
+   * list rows (`AdminCategoryDto`); 404s on unknown ids so the frontend
+   * can render its not-found page.
+   */
+  async getCategoryById(id: string) {
+    const row = await this.prisma.category.findUnique({
+      where: { id },
+      include: { translations: true },
+    });
+    if (row === null) {
+      throw new NotFoundException({ message: 'Category not found' });
+    }
+    return row;
+  }
+
   async createCategory(input: CreateCategoryInput) {
     if (input.parentId !== undefined) {
       await this.findCategoryOrThrow(input.parentId);

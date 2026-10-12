@@ -167,6 +167,7 @@ describe('Admin management (e2e)', () => {
       { method: 'get', path: '/api/v1/admin/products' },
       { method: 'post', path: '/api/v1/admin/products', body: {} },
       { method: 'get', path: '/api/v1/admin/categories' },
+      { method: 'get', path: '/api/v1/admin/categories/33333333-3333-4333-8333-333333333333' },
       { method: 'post', path: '/api/v1/admin/brands', body: {} },
       {
         method: 'patch',
@@ -228,6 +229,22 @@ describe('Admin management (e2e)', () => {
       .set(auth)
       .send({ parentId: categoryId })
       .expect(400);
+
+    // Get by id returns the same row; unknown ids 404 with the uniform payload.
+    await request(server)
+      .get(`/api/v1/admin/categories/${categoryId}`)
+      .set(auth)
+      .expect(200)
+      .expect(({ body }: { body: unknown }) => {
+        expect(body).toMatchObject({ id: categoryId, slug: catSlug });
+      });
+    await request(server)
+      .get('/api/v1/admin/categories/33333333-3333-4333-8333-333333333333')
+      .set(auth)
+      .expect(404)
+      .expect(({ body }: { body: unknown }) => {
+        expect(body).toMatchObject({ statusCode: 404, code: 'NOT_FOUND' });
+      });
 
     // Category with products cannot be deleted (409) — asserted after
     // product creation below. An empty category deletes cleanly (204).
