@@ -19,6 +19,13 @@ export class ChatSessionResponseDto {
     description: 'Last session update time (ISO 8601).',
   })
   updatedAt!: Date;
+
+  @ApiPropertyOptional({
+    example: 'Busco un portátil para estudiar.',
+    description:
+      'First user message truncated for list labels; absent when the session has no user message yet.',
+  })
+  preview?: string;
 }
 
 /** One stored chat message. */

@@ -323,13 +323,18 @@ describe('Advisor chat sessions (e2e)', () => {
       .send({ role: 'USER', content: 'intruder' })
       .expect(404);
 
-    // Listing shows only the caller's own sessions.
+    // Listing shows only the caller's own sessions, with the first user
+    // message as preview so labels render without fetching each history.
     const listA = await request(server)
       .get('/api/v1/advisor/sessions')
       .set('Authorization', `Bearer ${tokenA}`)
       .expect(200);
     const idsA = (listA.body as SessionBody[]).map((session) => session.id);
     expect(idsA).toContain(sessionA.id);
+    const listedA = (listA.body as (SessionBody & { preview?: string })[]).find(
+      (session) => session.id === sessionA.id,
+    );
+    expect(listedA?.preview).toBe('budget 800');
 
     const listB = await request(server)
       .get('/api/v1/advisor/sessions')

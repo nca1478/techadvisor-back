@@ -2,7 +2,11 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '../../config/env.schema.js';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import { ChatSessionsService, type ChatSessionOwner } from './chat-sessions.service.js';
+import {
+  ChatSessionsService,
+  toSessionPreview,
+  type ChatSessionOwner,
+} from './chat-sessions.service.js';
 
 const USER_A = '11111111-1111-4111-8111-111111111111';
 const USER_B = '22222222-2222-4222-8222-222222222222';
@@ -279,6 +283,54 @@ describe('ChatSessionsService (unit, mocked database)', () => {
     });
     expect(listed).toHaveLength(2);
     expect(listed[0]).toMatchObject({ id: SESSION_ID, messageCount: 2 });
+  });
+
+  it('truncates session previews to a single line like the frontend', () => {
+    expect(toSessionPreview('  Portátil\npara estudiar  ')).toBe('Portátil para estudiar');
+    expect(toSessionPreview('x'.repeat(100), 60)).toHaveLength(60);
+    expect(toSessionPreview('x'.repeat(100), 60)?.endsWith('…')).toBe(true);
+    expect(toSessionPreview('   ')).toBeUndefined();
+  });
+
+  it('lists user sessions with the first user message as preview', async () => {
+    const sessionFindMany = vi.fn().mockResolvedValue([
+      { ...userSessionRow(), _count: { messages: 4 } },
+      { ...userSessionRow(), id: 'other-id', _count: { messages: 0 } },
+    ]);
+    const messageFindMany = vi.fn().mockResolvedValue([
+      { sessionId: SESSION_ID, content: 'Portátil para estudiar ingeniería' },
+      { sessionId: SESSION_ID, content: 'Segunda pregunta del mismo chat' },
+    ]);
+    const { service } = buildService({ sessionFindMany, messageFindMany });
+
+    const listed = await service.listUserSessions(USER_A);
+    expect(messageFindMany).toHaveBeenCalledWith({
+      where: { sessionId: { in: [SESSION_ID, 'other-id'] }, role: 'USER' },
+      orderBy: { createdAt: 'asc' },
+      select: { sessionId: true, content: true },
+    });
+    expect(listed[0]).toMatchObject({
+      id: SESSION_ID,
+      messageCount: 4,
+      preview: 'Portátil para estudiar ingeniería',
+    });
+    expect(listed[1]).toMatchObject({ id: 'other-id', messageCount: 0 });
+    expect(listed[1]).not.toHaveProperty('preview');
+  });
+
+  it('reads history with the first user message as preview', async () => {
+    const { service } = buildService({
+      sessionFindUnique: vi.fn().mockResolvedValue(userSessionRow()),
+      messageFindMany: vi
+        .fn()
+        .mockResolvedValue([
+          messageRow({ role: 'ASSISTANT', content: 'clarifying?' }),
+          messageRow({ role: 'USER', content: 'Portátil para estudiar' }),
+        ]),
+    });
+
+    const history = await service.getSessionHistory(SESSION_ID, USER_OWNER);
+    expect(history.preview).toBe('Portátil para estudiar');
   });
 
   it('purges only anonymous sessions older than the retention window', async () => {

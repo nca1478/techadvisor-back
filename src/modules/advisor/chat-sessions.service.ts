@@ -18,6 +18,30 @@ export interface ChatSessionSummary {
   messageCount: number;
   createdAt: Date;
   updatedAt: Date;
+  /** First USER message truncated for list labels; absent when none yet. */
+  preview?: string;
+}
+
+/** Max session-preview length, in sync with the frontend `truncateSessionPreview`. */
+export const CHAT_SESSION_PREVIEW_MAX_LENGTH = 60;
+
+/**
+ * Truncates the first user message into a one-line session label.
+ * mantener en sync con frontend: `truncateSessionPreview` en
+ * `src/lib/api/advisor.ts` (same single-line collapse, length and ellipsis).
+ */
+export function toSessionPreview(
+  content: string,
+  maxLength: number = CHAT_SESSION_PREVIEW_MAX_LENGTH,
+): string | undefined {
+  const singleLine = content.replace(/\s+/g, ' ').trim();
+  if (singleLine.length === 0) {
+    return undefined;
+  }
+  if (singleLine.length <= maxLength) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 export interface ChatStoredMessage {
@@ -73,7 +97,37 @@ export class ChatSessionsService {
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { messages: true } } },
     });
-    return rows.map((row) => toSummary(row.id, row._count.messages, row.createdAt, row.updatedAt));
+    const previews = await this.previewBySession(rows.map((row) => row.id));
+    return rows.map((row) =>
+      toSummary(row.id, row._count.messages, row.createdAt, row.updatedAt, previews.get(row.id)),
+    );
+  }
+
+  /**
+   * First USER message per session (oldest first, one extra query for the
+   * whole list) so session labels show the conversation topic instead of a
+   * bare date. Sessions without a user message get no entry.
+   */
+  private async previewBySession(sessionIds: string[]): Promise<Map<string, string>> {
+    const previews = new Map<string, string>();
+    if (sessionIds.length === 0) {
+      return previews;
+    }
+    const firsts = await this.prisma.chatMessage.findMany({
+      where: { sessionId: { in: sessionIds }, role: 'USER' },
+      orderBy: { createdAt: 'asc' },
+      select: { sessionId: true, content: true },
+    });
+    for (const row of firsts) {
+      if (previews.has(row.sessionId)) {
+        continue;
+      }
+      const preview = toSessionPreview(row.content);
+      if (preview !== undefined) {
+        previews.set(row.sessionId, preview);
+      }
+    }
+    return previews;
   }
 
   /**
@@ -97,8 +151,10 @@ export class ChatSessionsService {
       where: { sessionId: session.id },
       orderBy: { createdAt: 'asc' },
     });
+    const firstUser = messages.find((message) => message.role === 'USER');
+    const preview = firstUser ? toSessionPreview(firstUser.content) : undefined;
     return {
-      ...toSummary(session.id, messages.length, session.createdAt, session.updatedAt),
+      ...toSummary(session.id, messages.length, session.createdAt, session.updatedAt, preview),
       messages: messages.map(toStoredMessage),
     };
   }
@@ -191,8 +247,14 @@ function toSummary(
   messageCount: number,
   createdAt: Date,
   updatedAt: Date,
+  preview?: string,
 ): ChatSessionSummary {
-  return { id, messageCount, createdAt, updatedAt };
+  // The key is omitted (not `undefined`) when there is no user message yet,
+  // so list/history payloads stay free of nullish fields.
+  if (preview === undefined) {
+    return { id, messageCount, createdAt, updatedAt };
+  }
+  return { id, messageCount, createdAt, updatedAt, preview };
 }
 
 function toStoredMessage(row: {
