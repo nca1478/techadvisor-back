@@ -15,6 +15,18 @@ export const COLLECTED_ORDER_STATUSES: readonly OrderStatus[] = [
 
 export type MetricsGranularity = 'hour' | 'day';
 
+/**
+ * Hard cap for the overview range (see ADR 0044): bounds the bucket count
+ * (<= 367 day-buckets, always 24 hour-buckets) and the scanned `createdAt`
+ * window (indexed) in a single deterministic 400 instead of a new
+ * rate-limiter. The dashboard never asks for more than 30 days.
+ */
+export const MAX_OVERVIEW_RANGE_DAYS = 366;
+
+export function rangeExceedsCap(start: Date, end: Date): boolean {
+  return end.getTime() - start.getTime() > MAX_OVERVIEW_RANGE_DAYS * 86_400_000;
+}
+
 export function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }

@@ -23,6 +23,7 @@ import {
   COLLECTED_ORDER_STATUSES,
   defaultOverviewStart,
   modeCurrency,
+  rangeExceedsCap,
 } from './metrics-overview.js';
 import type {
   AdminOrderListDto,
@@ -625,6 +626,11 @@ export class AdminService {
     }
     const end = to ?? new Date();
     const start = from ?? defaultOverviewStart(end, query.granularity);
+    if (rangeExceedsCap(start, end)) {
+      throw new BadRequestException({
+        message: '"from"/"to" range must span at most 366 days',
+      });
+    }
     const rangeWhere: Prisma.OrderWhereInput = { createdAt: { gte: start, lte: end } };
     const starts = buildBucketStarts(start, end, query.granularity);
 

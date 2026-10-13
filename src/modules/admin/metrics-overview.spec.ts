@@ -4,6 +4,7 @@ import {
   buildBucketStarts,
   defaultOverviewStart,
   modeCurrency,
+  rangeExceedsCap,
   startOfUtcDay,
   type CollectedRow,
 } from './metrics-overview.js';
@@ -53,6 +54,12 @@ describe('metrics-overview helpers (pure)', () => {
     expect(modeCurrency([row(), row({ currency: 'EUR' }), row({ currency: 'EUR' })])).toBe('EUR');
     expect(modeCurrency([row(), row({ currency: 'EUR' })])).toBe('USD');
     expect(modeCurrency([])).toBeNull();
+  });
+
+  it('caps the range at 366 days (boundary inclusive)', () => {
+    const start = new Date('2024-01-01T00:00:00.000Z');
+    expect(rangeExceedsCap(start, new Date('2024-12-31T00:00:00.000Z'))).toBe(false);
+    expect(rangeExceedsCap(start, new Date('2025-01-01T00:00:01.000Z'))).toBe(true);
   });
 
   it('buckets mode-currency rows, ignoring other currencies and out-of-range rows', () => {

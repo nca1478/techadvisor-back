@@ -229,6 +229,15 @@ describe('Admin metrics overview (e2e)', () => {
       .get('/api/v1/admin/metrics/overview?granularity=month')
       .set(auth)
       .expect(400);
+    await request(server)
+      .get(
+        '/api/v1/admin/metrics/overview?from=2022-01-01T00:00:00.000Z&to=2024-01-01T00:00:00.000Z',
+      )
+      .set(auth)
+      .expect(400)
+      .expect(({ body }: { body: unknown }) => {
+        expect(body).toMatchObject({ statusCode: 400, code: 'BAD_REQUEST' });
+      });
   });
 
   it('aggregates the fixture window exactly (day granularity)', async () => {
