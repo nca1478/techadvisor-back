@@ -11,14 +11,23 @@ import { APP_CONFIG } from '../../config/app-config.module.js';
 import type { AppConfig } from '../../config/env.schema.js';
 import type { OrderStatus, Prisma } from '../../generated/prisma/client.js';
 import { Prisma as PrismaNamespace } from '../../generated/prisma/client.js';
+import type { ShippingAddressDto } from '../orders/dto/orders.dto.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { parseSpecs } from '../catalog/specs/index.js';
 import { ProductSpecSheetService } from '../ingestion/product-spec-sheet.service.js';
 import { OrderNotFoundException } from '../orders/orders.errors.js';
 import { OrdersService } from '../orders/orders.service.js';
+import {
+  bucketizeCollected,
+  buildBucketStarts,
+  COLLECTED_ORDER_STATUSES,
+  defaultOverviewStart,
+  modeCurrency,
+} from './metrics-overview.js';
 import type {
   AdminOrderListDto,
   AdminOrderDto,
+  AdminMetricsOverviewDto,
   AdminProductDto,
   AdminProductListDto,
 } from './dto/admin.dto.js';
@@ -29,6 +38,7 @@ import type {
   CreateBrandInput,
   CreateCategoryInput,
   CreateProductInput,
+  MetricsOverviewQuery,
   ReplaceProductImagesInput,
   UpdateBrandInput,
   UpdateCategoryInput,
@@ -49,6 +59,7 @@ type AdminProductRow = Prisma.ProductGetPayload<{
 type AdminOrderRow = Prisma.OrderGetPayload<{
   include: {
     items: { include: { product: { select: { name: true; slug: true } } } };
+    user: { select: { name: true; email: true } };
   };
 }>;
 
@@ -557,6 +568,7 @@ export class AdminService {
             orderBy: { createdAt: 'asc' },
             include: { product: { select: { name: true, slug: true } } },
           },
+          user: { select: { name: true, email: true } },
         },
       }),
     ]);
@@ -577,6 +589,7 @@ export class AdminService {
           orderBy: { createdAt: 'asc' },
           include: { product: { select: { name: true, slug: true } } },
         },
+        user: { select: { name: true, email: true } },
       },
     });
     if (row === null) {
@@ -595,6 +608,91 @@ export class AdminService {
     }
     await this.orders.transitionOrder(id, to);
     return this.getOrderById(id);
+  }
+
+  /**
+   * Exact dashboard aggregation (see ADR 0043). Range filters mirror
+   * `listOrders` (`createdAt` gte/lte, same from/to validation, defaults to
+   * the last 7 UTC days); attention counts are point-in-time and never
+   * range-scoped. Money stays in minor units; revenue is grouped per
+   * currency and buckets use the mode currency (null when none collected).
+   */
+  async getMetricsOverview(query: MetricsOverviewQuery): Promise<AdminMetricsOverviewDto> {
+    const from = this.parseDateOrThrow(query.from, 'from');
+    const to = this.parseDateOrThrow(query.to, 'to');
+    if (from !== undefined && to !== undefined && from > to) {
+      throw new BadRequestException({ message: '"from" must not be after "to"' });
+    }
+    const end = to ?? new Date();
+    const start = from ?? defaultOverviewStart(end, query.granularity);
+    const rangeWhere: Prisma.OrderWhereInput = { createdAt: { gte: start, lte: end } };
+    const starts = buildBucketStarts(start, end, query.granularity);
+
+    const [
+      ordersTotal,
+      statusGroups,
+      collected,
+      inventoryRows,
+      pendingReviews,
+      failedDocs,
+      openUnanswered,
+    ] = await this.prisma.$transaction([
+      this.prisma.order.count({ where: rangeWhere }),
+      this.prisma.order.groupBy({ by: ['status'], where: rangeWhere, _count: { _all: true } }),
+      this.prisma.order.findMany({
+        where: { ...rangeWhere, status: { in: [...COLLECTED_ORDER_STATUSES] } },
+        select: { currency: true, totalAmount: true, createdAt: true },
+      }),
+      this.prisma.inventory.findMany({ select: { stock: true, reserved: true } }),
+      this.prisma.review.count({ where: { status: 'PENDING' } }),
+      this.prisma.document.count({ where: { status: 'FAILED', deletedAt: null } }),
+      this.prisma.unansweredQuery.count({ where: { status: { in: ['NEW', 'IN_REVIEW'] } } }),
+    ]);
+
+    const byStatus = statusGroups
+      .map((group) => ({ status: group.status, count: group._count._all }))
+      .sort((a, b) => (a.status < b.status ? -1 : a.status > b.status ? 1 : 0));
+
+    const revenueByCurrency = new Map<string, { amount: number; count: number }>();
+    for (const row of collected) {
+      const entry = revenueByCurrency.get(row.currency) ?? { amount: 0, count: 0 };
+      entry.amount += row.totalAmount;
+      entry.count += 1;
+      revenueByCurrency.set(row.currency, entry);
+    }
+    const revenue = [...revenueByCurrency.entries()]
+      .map(([currency, entry]) => ({ currency, amount: entry.amount, count: entry.count }))
+      .sort((a, b) => b.amount - a.amount || (a.currency < b.currency ? -1 : 1));
+
+    const bucketCurrency = modeCurrency(collected);
+    const amounts =
+      bucketCurrency === null
+        ? starts.map(() => 0)
+        : bucketizeCollected(collected, starts, query.granularity, bucketCurrency);
+    const buckets = starts.map((key, index) => ({
+      key: key.toISOString(),
+      amount: amounts[index],
+    }));
+
+    let outOfStock = 0;
+    let lowStock = 0;
+    for (const item of inventoryRows) {
+      const available = item.stock - item.reserved;
+      if (available <= 0) outOfStock += 1;
+      if (available <= query.lowStockThreshold) lowStock += 1;
+    }
+
+    return {
+      from: start.toISOString(),
+      to: end.toISOString(),
+      granularity: query.granularity,
+      ordersTotal,
+      byStatus,
+      revenue,
+      bucketCurrency,
+      buckets,
+      attention: { outOfStock, lowStock, pendingReviews, failedDocs, openUnanswered },
+    };
   }
 
   private async findProductOrThrow(id: string) {
@@ -778,6 +876,8 @@ export class AdminService {
     return {
       id: row.id,
       userId: row.userId,
+      userName: row.user.name,
+      userEmail: row.user.email,
       status: row.status,
       currency: row.currency,
       totalAmount: row.totalAmount,
@@ -789,6 +889,9 @@ export class AdminService {
         unitPriceAmount: item.unitPriceAmount,
         lineTotalAmount: item.unitPriceAmount * item.qty,
       })),
+      // `shipping` is a validated address snapshot (JsonB); the orders API
+      // guarantees its shape, so a narrow cast suffices here.
+      shipping: row.shipping as unknown as ShippingAddressDto,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

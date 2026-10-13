@@ -33,6 +33,7 @@ import {
   createBrandSchema,
   createCategorySchema,
   createProductSchema,
+  metricsOverviewQuerySchema,
   replaceProductImagesSchema,
   updateBrandSchema,
   updateCategorySchema,
@@ -46,6 +47,7 @@ import {
   type CreateBrandInput,
   type CreateCategoryInput,
   type CreateProductInput,
+  type MetricsOverviewQuery,
   type ReplaceProductImagesInput,
   type UpdateBrandInput,
   type UpdateCategoryInput,
@@ -59,6 +61,7 @@ import {
   AdminCategoryDto,
   AdminInventoryDto,
   AdminInventoryMovementDto,
+  AdminMetricsOverviewDto,
   AdminOrderDto,
   AdminOrderListDto,
   AdminProductDto,
@@ -252,6 +255,17 @@ export class AdminController {
   @ApiOkResponse({ type: [AdminInventoryMovementDto] })
   listMovements(@Param(new ZodValidationPipe(uuidParamsSchema)) params: UuidParams) {
     return this.admin.listMovements(params.id);
+  }
+
+  // --- Metrics -----------------------------------------------------------
+
+  @Get('metrics/overview')
+  @ApiOperation({ summary: 'Exact dashboard aggregation over an optional date range' })
+  @ApiOkResponse({ type: AdminMetricsOverviewDto })
+  getMetricsOverview(
+    @Query(new ZodValidationPipe(metricsOverviewQuerySchema)) query: MetricsOverviewQuery,
+  ): Promise<AdminMetricsOverviewDto> {
+    return this.admin.getMetricsOverview(query);
   }
 
   // --- Orders ------------------------------------------------------------

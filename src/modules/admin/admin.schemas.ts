@@ -292,3 +292,20 @@ export const adminOrderListQuerySchema = z.object({
 });
 
 export type AdminOrderListQuery = z.output<typeof adminOrderListQuerySchema>;
+
+/**
+ * Query for `GET /admin/metrics/overview`: exact dashboard aggregation over
+ * an optional UTC date range on `orders.createdAt`. `granularity` picks the
+ * sales-bucket step (`hour` = 24 UTC hours of the `to` day, `day` = UTC
+ * calendar days from `from` to `to`). Absent bounds default to the last 7
+ * UTC days ending now. `lowStockThreshold` mirrors the frontend
+ * `LOW_STOCK_THRESHOLD` default so both sides stay in sync by contract.
+ */
+export const metricsOverviewQuerySchema = z.object({
+  from: z.string().trim().min(1).optional(),
+  to: z.string().trim().min(1).optional(),
+  granularity: z.enum(['hour', 'day']).default('day'),
+  lowStockThreshold: z.coerce.number().int().min(1).max(1000).default(5),
+});
+
+export type MetricsOverviewQuery = z.output<typeof metricsOverviewQuerySchema>;

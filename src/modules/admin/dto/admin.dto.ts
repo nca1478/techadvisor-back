@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ShippingAddressDto } from '../../orders/dto/orders.dto.js';
 
 /** Fixed per-currency price row (see ADR 0007). */
 export class AdminPriceDto {
@@ -211,6 +212,14 @@ export class AdminOrderDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   userId!: string;
 
+  // Explicit `type` so OpenAPI emits a nullable string (without it the
+  // union's design:type degrades to `object` and clients see `Record`).
+  @ApiProperty({ example: 'Ada Lovelace', nullable: true, type: String })
+  userName!: string | null;
+
+  @ApiProperty({ example: 'ada@example.com' })
+  userEmail!: string;
+
   @ApiProperty({ example: 'PAID' })
   status!: string;
 
@@ -222,6 +231,9 @@ export class AdminOrderDto {
 
   @ApiProperty({ type: [AdminOrderItemDto] })
   items!: AdminOrderItemDto[];
+
+  @ApiProperty({ type: ShippingAddressDto })
+  shipping!: ShippingAddressDto;
 
   @ApiProperty({ example: '2026-10-06T12:00:00.000Z' })
   createdAt!: Date;
@@ -245,4 +257,86 @@ export class AdminOrderListDto {
 
   @ApiProperty({ example: 3 })
   totalPages!: number;
+}
+
+/** Orders in the overview range grouped by status (sorted by status). */
+export class AdminMetricsStatusCountDto {
+  @ApiProperty({ example: 'PAID' })
+  status!: string;
+
+  @ApiProperty({ example: 12 })
+  count!: number;
+}
+
+/** Collected revenue in one currency (sorted by amount, descending). */
+export class AdminMetricsRevenueDto {
+  @ApiProperty({ example: 'USD' })
+  currency!: string;
+
+  @ApiProperty({ example: 259800, description: 'Sum in minor units (never float).' })
+  amount!: number;
+
+  @ApiProperty({ example: 12, description: 'Collected orders counted in this currency.' })
+  count!: number;
+}
+
+/** One sales bucket: UTC step start (ISO) plus collected minor-units amount. */
+export class AdminMetricsBucketDto {
+  @ApiProperty({ example: '2026-10-07T00:00:00.000Z' })
+  key!: string;
+
+  @ApiProperty({ example: 45000 })
+  amount!: number;
+}
+
+/** Point-in-time operational backlog (never range-scoped). */
+export class AdminMetricsAttentionDto {
+  @ApiProperty({ example: 3, description: 'Products with zero available units.' })
+  outOfStock!: number;
+
+  @ApiProperty({ example: 5, description: 'Products at or below the low-stock threshold.' })
+  lowStock!: number;
+
+  @ApiProperty({ example: 2, description: 'Reviews awaiting moderation.' })
+  pendingReviews!: number;
+
+  @ApiProperty({ example: 1, description: 'Live (non-deleted) documents in FAILED.' })
+  failedDocs!: number;
+
+  @ApiProperty({ example: 4, description: 'Unanswered queries in NEW or IN_REVIEW.' })
+  openUnanswered!: number;
+}
+
+/** Exact dashboard aggregation for `GET /admin/metrics/overview` (see ADR 0043). */
+export class AdminMetricsOverviewDto {
+  @ApiProperty({ example: '2026-10-07T00:00:00.000Z', nullable: true })
+  from!: string | null;
+
+  @ApiProperty({ example: '2026-10-13T15:30:00.000Z', nullable: true })
+  to!: string | null;
+
+  @ApiProperty({ example: 'day', enum: ['hour', 'day'] })
+  granularity!: string;
+
+  @ApiProperty({ example: 42, description: 'Orders created in range (exact).' })
+  ordersTotal!: number;
+
+  @ApiProperty({ type: [AdminMetricsStatusCountDto] })
+  byStatus!: AdminMetricsStatusCountDto[];
+
+  @ApiProperty({ type: [AdminMetricsRevenueDto] })
+  revenue!: AdminMetricsRevenueDto[];
+
+  @ApiProperty({
+    example: 'USD',
+    nullable: true,
+    description: 'Mode currency of collected orders; null when none.',
+  })
+  bucketCurrency!: string | null;
+
+  @ApiProperty({ type: [AdminMetricsBucketDto] })
+  buckets!: AdminMetricsBucketDto[];
+
+  @ApiProperty({ type: AdminMetricsAttentionDto })
+  attention!: AdminMetricsAttentionDto;
 }
