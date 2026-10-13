@@ -550,6 +550,50 @@ describe('Admin management (e2e)', () => {
       });
   });
 
+  it('filters the admin product list by stock level', async () => {
+    const server = app.getHttpServer();
+    const auth = { Authorization: `Bearer ${adminToken}` };
+    // At this point the ACTIVE fixture holds available 9 (stock 10,
+    // reserved 1) and the DRAFT fixture holds available 0 (stock 0,
+    // reserved 0). Other pre-existing rows may exist, so assertions are
+    // membership-based plus a universal invariant per filter.
+    const out = await request(server)
+      .get('/api/v1/admin/products?stock=out_of_stock')
+      .set(auth)
+      .expect(200);
+    const outRows = (out.body as { data: AdminProductBody[] }).data;
+    expect(outRows.map((row) => row.id)).toContain(draftId);
+    expect(outRows.map((row) => row.id)).not.toContain(productId);
+    for (const row of outRows) {
+      expect(row.stock - row.reserved).toBeLessThanOrEqual(0);
+    }
+
+    const low = await request(server)
+      .get('/api/v1/admin/products?stock=low_stock')
+      .set(auth)
+      .expect(200);
+    const lowRows = (low.body as { data: AdminProductBody[] }).data;
+    expect(lowRows.map((row) => row.id)).toContain(draftId);
+    expect(lowRows.map((row) => row.id)).not.toContain(productId);
+    for (const row of lowRows) {
+      expect(row.stock - row.reserved).toBeLessThanOrEqual(5);
+    }
+
+    const reserved = await request(server)
+      .get('/api/v1/admin/products?stock=reserved')
+      .set(auth)
+      .expect(200);
+    const reservedRows = (reserved.body as { data: AdminProductBody[] }).data;
+    expect(reservedRows.map((row) => row.id)).toContain(productId);
+    expect(reservedRows.map((row) => row.id)).not.toContain(draftId);
+    for (const row of reservedRows) {
+      expect(row.reserved).toBeGreaterThan(0);
+    }
+
+    // Unknown filter values are rejected.
+    await request(server).get('/api/v1/admin/products?stock=foo').set(auth).expect(400);
+  });
+
   it('archives the product: hidden publicly, kept in order history', async () => {
     const server = app.getHttpServer();
     const auth = { Authorization: `Bearer ${adminToken}` };

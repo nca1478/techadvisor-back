@@ -162,12 +162,27 @@ export const replaceProductImagesSchema = z.object({
 
 export type ReplaceProductImagesInput = z.output<typeof replaceProductImagesSchema>;
 
+/**
+ * Stock filter for `GET /admin/products` (inventory screen): `out_of_stock`
+ * is zero available units (`stock - reserved <= 0`), `low_stock` is at or
+ * below `lowStockThreshold` (inclusive, so it contains `out_of_stock` —
+ * same definition as the metrics overview attention counts and the
+ * frontend `isLowStock` helper), and `reserved` is any held units
+ * (`reserved > 0`). Every product owns an `inventory` row (created with
+ * the product), so matching filters on that table.
+ */
+export const adminProductStockFilterSchema = z.enum(['out_of_stock', 'low_stock', 'reserved']);
+
+export type AdminProductStockFilter = z.output<typeof adminProductStockFilterSchema>;
+
 /** Query for `GET /admin/products`: every status is visible (no ACTIVE filter). */
 export const adminProductListQuerySchema = z.object({
   status: productStatusSchema.optional(),
   category: z.string().trim().min(1).max(100).optional(),
   brand: z.string().trim().min(1).max(100).optional(),
   q: z.string().trim().min(1).max(100).optional(),
+  stock: adminProductStockFilterSchema.optional(),
+  lowStockThreshold: z.coerce.number().int().min(1).max(1000).default(5),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

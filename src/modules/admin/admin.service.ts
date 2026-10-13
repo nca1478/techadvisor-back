@@ -92,6 +92,19 @@ export class AdminService {
         { slug: { contains: text, mode: 'insensitive' } },
       ];
     }
+    if (query.stock !== undefined) {
+      const matchingIds = await this.matchingStockProductIds(query.stock, query.lowStockThreshold);
+      if (matchingIds.length === 0) {
+        return {
+          data: [],
+          page: query.page,
+          limit: query.limit,
+          total: 0,
+          totalPages: 1,
+        };
+      }
+      where.id = { in: matchingIds };
+    }
     const skip = (query.page - 1) * query.limit;
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.product.count({ where }),
@@ -117,6 +130,31 @@ export class AdminService {
       total,
       totalPages: Math.max(1, Math.ceil(total / query.limit)),
     };
+  }
+
+  /**
+   * Product ids matching a stock filter. Available units are computed in
+   * SQL (`stock - reserved`) because Prisma relation filters cannot compare
+   * two columns. `low_stock` is inclusive of `out_of_stock` (same
+   * definition as `getMetricsOverview` and the frontend `isLowStock`).
+   */
+  private async matchingStockProductIds(
+    stock: AdminProductListQuery['stock'],
+    lowStockThreshold: number,
+  ): Promise<string[]> {
+    const rows =
+      stock === 'reserved'
+        ? await this.prisma.$queryRaw<Array<{ productId: string }>>(
+            PrismaNamespace.sql`SELECT "product_id" AS "productId" FROM "inventory" WHERE "reserved" > 0`,
+          )
+        : stock === 'out_of_stock'
+          ? await this.prisma.$queryRaw<Array<{ productId: string }>>(
+              PrismaNamespace.sql`SELECT "product_id" AS "productId" FROM "inventory" WHERE "stock" - "reserved" <= 0`,
+            )
+          : await this.prisma.$queryRaw<Array<{ productId: string }>>(
+              PrismaNamespace.sql`SELECT "product_id" AS "productId" FROM "inventory" WHERE "stock" - "reserved" <= ${lowStockThreshold}`,
+            );
+    return rows.map((row) => row.productId);
   }
 
   async getProductById(id: string): Promise<AdminProductDto> {
