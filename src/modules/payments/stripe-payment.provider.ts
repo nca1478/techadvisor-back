@@ -97,6 +97,19 @@ export class StripePaymentProvider implements PaymentProvider {
     this.webhookSecret = config.webhookSecret;
     this.baseUrl = config.baseUrl;
     this.injected = client;
+    if (typeof this.baseUrl === 'string' && this.baseUrl.length > 0) {
+      // stripe-mock mode (see ADR 0051): checkout sessions return fixture
+      // ids/URLs that are NOT payable — opening one in a browser shows
+      // Stripe's "This link is incomplete" page. This is expected offline
+      // behaviour; unset STRIPE_BASE_URL to use the real test API.
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          msg: 'Stripe is pointed at a mock base URL: checkout URLs are fixtures, not payable links',
+          baseUrl: this.baseUrl,
+        }),
+      );
+    }
   }
 
   /**

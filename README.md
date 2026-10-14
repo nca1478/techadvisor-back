@@ -175,7 +175,9 @@ STRIPE_BASE_URL=http://localhost:12111
 
 El mock devuelve fixtures con ids/URLs fijos y no envía webhooks reales,
 así que los flujos de webhook se siguen probando con el Stripe CLI de
-arriba. Deja `STRIPE_BASE_URL` vacío para volver a la API test real.
+arriba. Esas URLs fixture NO son pagables: abrir una en el navegador
+muestra la página "This link is incomplete" de Stripe; es el
+comportamiento esperado del mock, no un bug. Deja `STRIPE_BASE_URL` vacío para volver a la API test real.
 
 ## Estructura
 

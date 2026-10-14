@@ -307,6 +307,38 @@ describe('StripePaymentProvider', () => {
     expect(create).toHaveBeenCalledOnce();
   });
 
+  it('warns at construction when pointed at a mock base URL (fixture URLs are not payable)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      const withMock = new StripePaymentProvider(
+        { secretKey: SECRET_KEY, webhookSecret: WEBHOOK_SECRET, baseUrl: 'http://localhost:12111' },
+        {
+          checkout: {
+            sessions: {
+              create: () => Promise.resolve({ id: 'cs_test_123', url: 'https://x.test/' }),
+            },
+          },
+          webhooks: {
+            constructEvent: (p, h, s): Stripe.Event => realWebhooks().constructEvent(p, h, s),
+          },
+        },
+      );
+      expect(withMock.isConfigured()).toBe(true);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+
+    const quiet = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      harness();
+      expect(quiet).not.toHaveBeenCalled();
+    } finally {
+      quiet.mockRestore();
+    }
+  });
+
   describe('stripeOptionsFromBaseUrl (stripe-mock via compose, ADR 0051)', () => {
     it('returns empty options when unset (real Stripe API)', () => {
       expect(stripeOptionsFromBaseUrl(undefined)).toEqual({});
