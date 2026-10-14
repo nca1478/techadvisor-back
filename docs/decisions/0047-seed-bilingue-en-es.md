@@ -40,3 +40,11 @@ columnas base y español en `*_es` / `product_translations`).
   (orden adjetivo-sustantivo ocasionalmente invertido, p. ej. *details
   vibrant*); suficiente para demo/RAG, mejorable con revisión humana o MT
   neuronal en el futuro sin cambiar el procedimiento.
+- Revisión 2026-10-14 (textos cortados): el scrape inicial truncaba
+  `description` a 2000 caracteres y el seed a 1200, dejando frases a medias.
+  Se re-extrajo el texto completo (máx. 12.199; p50 2.238) y ahora las
+  descripciones ES/EN usan el texto íntegro, cortando como máximo en límite
+  de frase si supera ~4.900 caracteres (tope de esquema: 5.000).
+- Lección del motor: `\b` en JS es solo ASCII — veía una frontera dentro de
+  *varía* (í|a) y la regla del artículo `a→an` la corrompía a *varían*. Se
+  usa lookbehind Unicode (`(?<![\p{L}\p{N}_])`) en su lugar.
