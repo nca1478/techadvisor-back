@@ -13,6 +13,12 @@ import type {
 export interface StripeAdapterConfig {
   secretKey: string | undefined;
   webhookSecret: string | undefined;
+  /**
+   * Optional API base URL for local development against stripe-mock
+   * (e.g. `http://localhost:12111`, see ADR 0051). Unset in normal
+   * operation, where the SDK talks to the real Stripe test API.
+   */
+  baseUrl?: string | undefined;
 }
 
 /**
@@ -43,6 +49,24 @@ export interface StripeClient {
 export const CHECKOUT_TTL_SEC = 30 * 60;
 
 /**
+ * Splits a `STRIPE_BASE_URL` (e.g. `http://localhost:12111` for stripe-mock,
+ * see ADR 0051) into the stripe-node constructor options — the only
+ * supported way to point the SDK at a non-Stripe host. Returns `{}` when
+ * unset so the SDK uses the real Stripe API. Exported for unit testing.
+ */
+export function stripeOptionsFromBaseUrl(
+  baseUrl: string | undefined,
+): Pick<Stripe.StripeConfig, 'host' | 'port' | 'protocol'> {
+  if (typeof baseUrl !== 'string' || baseUrl.length === 0) {
+    return {};
+  }
+  const parsed = new URL(baseUrl);
+  const protocol = parsed.protocol.replace(/:$/, '') as 'http' | 'https';
+  const port = parsed.port.length > 0 ? Number(parsed.port) : protocol === 'https' ? 443 : 80;
+  return { host: parsed.hostname, port, protocol };
+}
+
+/**
  * Reads our order id from provider metadata without trusting its shape:
  * foreign or forged events may carry anything (or nothing) here.
  */
@@ -64,25 +88,34 @@ export class StripePaymentProvider implements PaymentProvider {
 
   private readonly secretKey: string | undefined;
   private readonly webhookSecret: string | undefined;
+  private readonly baseUrl: string | undefined;
   private readonly injected: StripeClient | undefined;
   private lazy: StripeClient | undefined;
 
   constructor(config: StripeAdapterConfig, client?: StripeClient) {
     this.secretKey = config.secretKey;
     this.webhookSecret = config.webhookSecret;
+    this.baseUrl = config.baseUrl;
     this.injected = client;
   }
 
   /**
    * The SDK client is built lazily so an unconfigured instance (no keys in
    * local development/CI) never touches the SDK constructor at module init.
+   * When `baseUrl` is set (stripe-mock via docker compose, see ADR 0051),
+   * it is split into the SDK's `host`/`port`/`protocol` options — the only
+   * supported way to point stripe-node at a non-Stripe host.
    */
   private get client(): StripeClient {
     if (this.lazy === undefined) {
       // The official SDK structurally satisfies the narrow StripeClient view.
-      this.lazy = this.injected ?? new Stripe(this.secretKey ?? '');
+      this.lazy = this.injected ?? new Stripe(this.secretKey ?? '', this.stripeOptions());
     }
     return this.lazy;
+  }
+
+  private stripeOptions(): Stripe.StripeConfig {
+    return stripeOptionsFromBaseUrl(this.baseUrl);
   }
 
   isConfigured(): boolean {

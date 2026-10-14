@@ -5,6 +5,7 @@ import type { CreatePaymentRequest } from './payment-provider.js';
 import {
   CHECKOUT_TTL_SEC,
   StripePaymentProvider,
+  stripeOptionsFromBaseUrl,
   type StripeClient,
 } from './stripe-payment.provider.js';
 
@@ -304,5 +305,32 @@ describe('StripePaymentProvider', () => {
 
     await provider.createPayment(CHECKOUT_REQUEST, 'checkout-spy');
     expect(create).toHaveBeenCalledOnce();
+  });
+
+  describe('stripeOptionsFromBaseUrl (stripe-mock via compose, ADR 0051)', () => {
+    it('returns empty options when unset (real Stripe API)', () => {
+      expect(stripeOptionsFromBaseUrl(undefined)).toEqual({});
+      expect(stripeOptionsFromBaseUrl('')).toEqual({});
+    });
+
+    it('splits the mock url into host/port/protocol', () => {
+      expect(stripeOptionsFromBaseUrl('http://localhost:12111')).toEqual({
+        host: 'localhost',
+        port: 12111,
+        protocol: 'http',
+      });
+    });
+
+    it('defaults ports when omitted', () => {
+      expect(stripeOptionsFromBaseUrl('https://api.stripe.com')).toMatchObject({
+        host: 'api.stripe.com',
+        port: 443,
+        protocol: 'https',
+      });
+      expect(stripeOptionsFromBaseUrl('http://stripe-mock:12111')).toMatchObject({
+        host: 'stripe-mock',
+        port: 12111,
+      });
+    });
   });
 });

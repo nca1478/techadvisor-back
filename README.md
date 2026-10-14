@@ -28,8 +28,8 @@ La API y la web corren con `npm run dev` — sin Dockerfiles.
 
 ```bash
 cp .env.example .env          # una vez: crea tu env local (nunca commitees .env)
-docker compose up -d          # arranca postgres (5433) + redis (6379)
-docker compose ps             # ambos servicios deben salir "healthy"
+docker compose up -d          # arranca postgres (5433) + redis (6379) + stripe-mock (12111/12112)
+docker compose ps             # los servicios deben salir "healthy"
 docker compose down           # detiene la infraestructura (conserva los volúmenes)
 docker compose down -v        # detiene Y borra los volúmenes (arranque limpio)
 ```
@@ -162,6 +162,20 @@ stripe listen --all-snapshot --forward-to localhost:3001/api/v1/payments/webhook
 # En otra terminal, para activar eventos con CLI
 stripe trigger payment_intent.succeeded
 ```
+
+### Stripe offline con stripe-mock (sin red ni cuenta)
+
+`docker compose up -d` incluye `stripe-mock` (puertos `12111` HTTP y
+`12112` HTTPS). Para crear Checkout Sessions contra el mock en vez de la
+API real, pon en tu `.env` (ver ADR `0051`):
+
+```bash
+STRIPE_BASE_URL=http://localhost:12111
+```
+
+El mock devuelve fixtures con ids/URLs fijos y no envía webhooks reales,
+así que los flujos de webhook se siguen probando con el Stripe CLI de
+arriba. Deja `STRIPE_BASE_URL` vacío para volver a la API test real.
 
 ## Estructura
 

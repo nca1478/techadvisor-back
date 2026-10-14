@@ -138,6 +138,27 @@ describe('parseEnv', () => {
     );
   });
 
+  it('leaves STRIPE_BASE_URL unset by default (real Stripe API)', () => {
+    expect(parseEnv({ ...VALID_ENV }).STRIPE_BASE_URL).toBeUndefined();
+  });
+
+  it('accepts a stripe-mock base url and treats empty as unset', () => {
+    expect(
+      parseEnv({ ...VALID_ENV, STRIPE_BASE_URL: 'http://localhost:12111' }).STRIPE_BASE_URL,
+    ).toBe('http://localhost:12111');
+    expect(parseEnv({ ...VALID_ENV, STRIPE_BASE_URL: '' }).STRIPE_BASE_URL).toBeUndefined();
+    expect(parseEnv({ ...VALID_ENV, STRIPE_BASE_URL: '   ' }).STRIPE_BASE_URL).toBeUndefined();
+  });
+
+  it('rejects a non-http STRIPE_BASE_URL', () => {
+    expect(() => parseEnv({ ...VALID_ENV, STRIPE_BASE_URL: 'not-a-url' })).toThrow(
+      /STRIPE_BASE_URL/,
+    );
+    expect(() => parseEnv({ ...VALID_ENV, STRIPE_BASE_URL: 'ftp://localhost:21' })).toThrow(
+      /STRIPE_BASE_URL/,
+    );
+  });
+
   it('defaults to the fake embedding provider with tunable batching/retry knobs', () => {
     const config = parseEnv({ ...VALID_ENV });
 

@@ -27,6 +27,7 @@ import { StripePaymentProvider } from './stripe-payment.provider.js';
         new StripePaymentProvider({
           secretKey: config.STRIPE_SECRET_KEY,
           webhookSecret: config.STRIPE_WEBHOOK_SECRET,
+          baseUrl: config.STRIPE_BASE_URL,
         }),
     },
   ],

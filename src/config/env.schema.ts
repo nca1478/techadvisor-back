@@ -83,6 +83,16 @@ const stripeWebhookSecretSchema = z.preprocess(
     .optional(),
 );
 
+const stripeBaseUrlSchema = z.preprocess(
+  emptyToUndefined,
+  z
+    .url({ error: 'STRIPE_BASE_URL must be a valid URL (e.g. http://localhost:12111)' })
+    .refine((url) => url.startsWith('http://') || url.startsWith('https://'), {
+      error: 'STRIPE_BASE_URL must use the http:// or https:// scheme',
+    })
+    .optional(),
+);
+
 const embeddingBaseUrlSchema = z.preprocess(
   emptyToUndefined,
   z
@@ -195,6 +205,7 @@ const envSchema = z
     STRIPE_SECRET_KEY: stripeSecretKeySchema,
     STRIPE_PUBLISHABLE_KEY: stripePublishableKeySchema,
     STRIPE_WEBHOOK_SECRET: stripeWebhookSecretSchema,
+    STRIPE_BASE_URL: stripeBaseUrlSchema,
     EMBEDDING_PROVIDER: z
       .enum(['fake', 'openai-compatible', 'nvidia'], {
         error: 'EMBEDDING_PROVIDER must be one of: fake, openai-compatible, nvidia',

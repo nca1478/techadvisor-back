@@ -31,6 +31,22 @@ services:
       retries: 10
       start_period: 5s
 
+  stripe-mock:
+    # Mock oficial de la API de Stripe para desarrollo local sin red
+    # (ver ADR 0051). Escucha HTTP en 12111 y HTTPS/HTTP2 en 12112.
+    # El backend lo usa cuando STRIPE_BASE_URL=http://localhost:12111.
+    image: stripe/stripe-mock:latest
+    restart: unless-stopped
+    ports:
+      - "12111:12111"
+      - "12112:12112"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:12111/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
 volumes:
   postgres-data:
   redis-data:
