@@ -28,7 +28,8 @@ describe('seed fixtures', () => {
     expect(data.categories.length).toBeGreaterThanOrEqual(6);
     expect(data.categories.length).toBeLessThanOrEqual(8);
     expect(data.brands.length).toBeGreaterThanOrEqual(8);
-    expect(data.brands.length).toBeLessThanOrEqual(10);
+    // Real-catalog seed (SpeedLogic, ADR 0046): 25 board-partner brands.
+    expect(data.brands.length).toBeLessThanOrEqual(30);
     expect(data.products.length).toBeGreaterThanOrEqual(35);
   });
 

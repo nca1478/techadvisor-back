@@ -1,12 +1,102 @@
 [
-  { "slug": "lenovo", "name": "Lenovo" },
-  { "slug": "asus", "name": "ASUS" },
-  { "slug": "msi", "name": "MSI" },
-  { "slug": "gigabyte", "name": "Gigabyte" },
-  { "slug": "amd", "name": "AMD" },
-  { "slug": "intel", "name": "Intel" },
-  { "slug": "corsair", "name": "Corsair" },
-  { "slug": "samsung", "name": "Samsung" },
-  { "slug": "kingston", "name": "Kingston" },
-  { "slug": "seasonic", "name": "Seasonic" }
+  {
+    "slug": "acer",
+    "name": "Acer"
+  },
+  {
+    "slug": "adata",
+    "name": "ADATA"
+  },
+  {
+    "slug": "amd",
+    "name": "AMD"
+  },
+  {
+    "slug": "antec",
+    "name": "Antec"
+  },
+  {
+    "slug": "aoc",
+    "name": "AOC"
+  },
+  {
+    "slug": "asus",
+    "name": "ASUS"
+  },
+  {
+    "slug": "corsair",
+    "name": "Corsair"
+  },
+  {
+    "slug": "cougar",
+    "name": "Cougar"
+  },
+  {
+    "slug": "crucial",
+    "name": "Crucial"
+  },
+  {
+    "slug": "gigabyte",
+    "name": "Gigabyte"
+  },
+  {
+    "slug": "intel",
+    "name": "Intel"
+  },
+  {
+    "slug": "kingston",
+    "name": "Kingston"
+  },
+  {
+    "slug": "lenovo",
+    "name": "Lenovo"
+  },
+  {
+    "slug": "lexar",
+    "name": "Lexar"
+  },
+  {
+    "slug": "lg",
+    "name": "LG"
+  },
+  {
+    "slug": "msi",
+    "name": "MSI"
+  },
+  {
+    "slug": "patriot",
+    "name": "Patriot"
+  },
+  {
+    "slug": "samsung",
+    "name": "Samsung"
+  },
+  {
+    "slug": "seagate",
+    "name": "Seagate"
+  },
+  {
+    "slug": "seasonic",
+    "name": "Seasonic"
+  },
+  {
+    "slug": "teamgroup",
+    "name": "TeamGroup"
+  },
+  {
+    "slug": "toshiba",
+    "name": "Toshiba"
+  },
+  {
+    "slug": "western-digital",
+    "name": "Western Digital"
+  },
+  {
+    "slug": "xiaomi",
+    "name": "Xiaomi"
+  },
+  {
+    "slug": "xpg",
+    "name": "XPG"
+  }
 ]

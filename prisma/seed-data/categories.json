@@ -1,9 +1,42 @@
 [
-  { "slug": "laptops", "name": "Laptops", "nameEs": "Portátiles" },
-  { "slug": "cpus", "name": "Processors", "nameEs": "Procesadores" },
-  { "slug": "motherboards", "name": "Motherboards", "nameEs": "Placas base" },
-  { "slug": "ram", "name": "Memory", "nameEs": "Memoria RAM" },
-  { "slug": "gpus", "name": "Graphics cards", "nameEs": "Tarjetas gráficas" },
-  { "slug": "storage", "name": "Storage", "nameEs": "Almacenamiento" },
-  { "slug": "psus", "name": "Power supplies", "nameEs": "Fuentes de poder" }
+  {
+    "slug": "laptops",
+    "name": "Laptops",
+    "nameEs": "Portátiles"
+  },
+  {
+    "slug": "cpus",
+    "name": "Processors",
+    "nameEs": "Procesadores"
+  },
+  {
+    "slug": "motherboards",
+    "name": "Motherboards",
+    "nameEs": "Placas base"
+  },
+  {
+    "slug": "ram",
+    "name": "Memory",
+    "nameEs": "Memoria RAM"
+  },
+  {
+    "slug": "gpus",
+    "name": "Graphics cards",
+    "nameEs": "Tarjetas gráficas"
+  },
+  {
+    "slug": "storage",
+    "name": "Storage",
+    "nameEs": "Almacenamiento"
+  },
+  {
+    "slug": "psus",
+    "name": "Power supplies",
+    "nameEs": "Fuentes de poder"
+  },
+  {
+    "slug": "monitors",
+    "name": "Monitors",
+    "nameEs": "Monitores"
+  }
 ]
