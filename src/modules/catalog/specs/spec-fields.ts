@@ -117,6 +117,13 @@ const PSU_FIELDS: SpecFieldDef[] = [
   },
 ];
 
+const MONITOR_FIELDS: SpecFieldDef[] = [
+  { key: 'screen_inches', label: 'Screen size', type: 'number', unit: 'inches' },
+  { key: 'resolution', label: 'Resolution', type: 'string' },
+  { key: 'panel_type', label: 'Panel type', type: 'string' },
+  { key: 'refresh_hz', label: 'Refresh rate', type: 'integer', unit: 'Hz' },
+];
+
 /**
  * Field tables keyed by category slug. Slugs not listed here expose an
  * empty `specsSchema` (unstructured `specs` still returned as-is).
@@ -129,6 +136,7 @@ export const SPECS_FIELDS_BY_CATEGORY: Readonly<Record<string, readonly SpecFiel
   gpus: GPU_FIELDS,
   storage: STORAGE_FIELDS,
   psus: PSU_FIELDS,
+  monitors: MONITOR_FIELDS,
 };
 
 /** Field definitions for a category slug, or an empty array when unknown. */
