@@ -367,7 +367,7 @@ describe('Admin management (e2e)', () => {
 
     // Visible in the admin list (ACTIVE filter) and in the public catalog.
     const listed = await request(server)
-      .get('/api/v1/admin/products?status=ACTIVE')
+      .get(`/api/v1/admin/products?status=ACTIVE&q=${encodeURIComponent(suffix)}`)
       .set(auth)
       .expect(200);
     expect((listed.body as { data: AdminProductBody[] }).data.map((row) => row.id)).toContain(
@@ -592,6 +592,19 @@ describe('Admin management (e2e)', () => {
 
     // Unknown filter values are rejected.
     await request(server).get('/api/v1/admin/products?stock=foo').set(auth).expect(400);
+  });
+
+  it('lists admin products in alphabetical order by name', async () => {
+    const server = app.getHttpServer();
+    const auth = { Authorization: `Bearer ${adminToken}` };
+    // Both fixtures share the run-unique suffix, so the search isolates
+    // them: `E2E Adm Draft …` must come before `E2E Admin Product …`.
+    const listed = await request(server)
+      .get(`/api/v1/admin/products?q=${encodeURIComponent(suffix)}`)
+      .set(auth)
+      .expect(200);
+    const names = (listed.body as { data: AdminProductBody[] }).data.map((row) => row.name);
+    expect(names).toEqual([`E2E Adm Draft ${suffix}`, `E2E Admin Product ${suffix}`]);
   });
 
   it('archives the product: hidden publicly, kept in order history', async () => {

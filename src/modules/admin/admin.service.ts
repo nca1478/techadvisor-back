@@ -110,7 +110,7 @@ export class AdminService {
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({
         where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
         skip,
         take: query.limit,
         include: {
