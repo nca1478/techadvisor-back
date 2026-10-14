@@ -65,6 +65,26 @@ el endpoint `POST /api/v1/advisor/support` (ver ADR `0036`):
 npm run seed:policies    # idempotente: omite lo que no cambió; también se niega en producción
 ```
 
+## Corpus RAG del asesor (fichas, FAQ, garantía, políticas)
+
+El corpus curado que ve el panel `/admin/documentos` y alimenta a los
+asesores (producto-QA sobre SPEC_SHEET; soporte sobre POLICY/WARRANTY/FAQ,
+ver ADR `0048`):
+
+- **Ficha técnica por producto** (`SPEC_SHEET`, `source = 'auto:product'`):
+  una por cada producto ACTIVE, generada desde la fila del catálogo.
+- **FAQ** (`docs/content/faqs/<locale>/*.md`, `type: FAQ`).
+- **Garantía** (`docs/content/warranty/<locale>/*.md`, `type: WARRANTY`).
+- **Políticas** (`docs/content/policies/<locale>/*.md`, `type: POLICY`).
+
+```bash
+npm run seed:documents  # superset idempotente de seed:policies + fichas + FAQ + garantía; también se niega en producción
+```
+
+Re-ejecutarlo converge sin duplicar chunks (omite lo no cambiado por
+`content_hash`) y reaviva filas seed borradas desde el admin. Manuales
+(`source = 'manual'`) nunca se tocan.
+
 Usuarios de prueba (solo desarrollo local, nunca producción):
 
 | Rol      | Email                        | Contraseña     |
@@ -78,7 +98,8 @@ Usuarios de prueba (solo desarrollo local, nunca producción):
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | `npm run dev`              | arranca en modo watch (puerto 3001)                                                      |
 | `npm run seed`             | carga datos de desarrollo/demo                                                           |
-| `npm run seed:policies`    | ingiere las políticas de ejemplo como documentos `POLICY` (idempotente)                  |
+| `npm run seed:policies`      | ingiere las políticas de ejemplo como documentos `POLICY` (idempotente)                  |
+| `npm run seed:documents`     | ingiere el corpus RAG curado (SPEC_SHEET por producto + FAQ + WARRANTY + POLICY, idempotente) |
 | `npm run build`            | compila a `dist/`                                                                        |
 | `npm run worker:ingestion` | corre el worker de ingesta RAG (desde `dist/`, requiere `npm run build` antes)           |
 | `npm run worker:reindex`   | corre el worker de reindex de embeddings (desde `dist/`, requiere `npm run build` antes) |

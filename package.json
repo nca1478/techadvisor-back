@@ -12,6 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:policies": "tsx prisma/seed-policies.ts",
+    "db:seed:documents": "tsx prisma/seed-documents.ts",
+    "seed:documents": "tsx prisma/seed-documents.ts",
     "build": "nest build",
     "deploy": "nest deploy",
     "dev": "nest start --watch",
