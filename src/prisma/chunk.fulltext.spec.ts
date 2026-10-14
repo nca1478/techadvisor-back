@@ -11,8 +11,9 @@ import { PrismaClient } from '../generated/prisma/client.js';
  * English stemming ("laptop" finds "laptops") via the per-locale `tsv`
  * column maintained by the `chunks_tsv_update` trigger (see ADR 0015).
  *
- * The `tsv` column has no Prisma model field (Prisma cannot map tsvector),
- * so all full-text assertions go through `$queryRaw`.
+ * The `tsv` column is declared as `Unsupported` in the Prisma model (drift
+ * marker only, see ADR 0049), so all full-text assertions go through
+ * `$queryRaw`.
  */
 describe('RAG chunks full-text search per locale (integration)', () => {
   const suffix = `${String(Date.now())}-${String(Math.floor(Math.random() * 1_000_000))}`;
