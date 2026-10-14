@@ -5,6 +5,12 @@ Escucha en el puerto **3001** con prefijo global **`/api/v1`**.
 
 > Fuente de verdad: [`../AGENTS.md`](../AGENTS.md).
 
+Estado: ecommerce completo (auth, catálogo i18n, inventario, carrito,
+órdenes, pagos Stripe test, panel admin) + RAG completo (ingesta,
+búsqueda híbrida, product-QA, asesor conversacional, comparador,
+soporte posventa, reseñas con resumen) + evaluación y observabilidad
+(Fases 0–7). Decisiones en `docs/decisions/` (51 ADRs).
+
 ## Ejecución
 
 ```bash
@@ -21,7 +27,7 @@ npm run dev      # modo watch en http://localhost:3001
 > npm run build && npm run worker:ingestion
 > ```
 
-## Infraestructura (PostgreSQL + pgvector, Redis)
+## Infraestructura (PostgreSQL + pgvector, Redis, stripe-mock)
 
 La infraestructura local corre con Docker Compose desde esta carpeta (`backend/`).
 La API y la web corren con `npm run dev` — sin Dockerfiles.
@@ -37,53 +43,26 @@ docker compose down -v        # detiene Y borra los volúmenes (arranque limpio)
 ## Base de datos (Prisma)
 
 ```bash
-npx prisma migrate dev   # aplica migraciones pendientes (crea la BD si falta)
-npx prisma generate      # regenera el cliente (también corre en `npm ci` vía `postinstall`)
+npm run db:generate    # regenera el cliente (también corre en `npm ci` vía `postinstall`)
+npm run db:migrate     # aplica migraciones pendientes (crea la BD si falta)
 ```
+
+Migraciones siempre aditivas (26 migraciones: auth, catálogo, inventario,
+carrito, órdenes, pagos, corpus RAG, sesiones del asesor, reseñas,
+observabilidad). Ver `prisma/migrations/`.
 
 ## Seed (solo datos de desarrollo)
 
 Fixtures idempotentes: 7 categorías, 10 marcas, 40 productos (portátiles +
-componentes de PC con specs coherentes), traducciones ES y dos usuarios de
-prueba. Los datos viven en `prisma/seed-data/*.json` y se validan contra los
+componentes de PC con specs coherentes), traducciones ES y EN, y dos usuarios
+de prueba. Los datos viven en `prisma/seed-data/*.json` y se validan contra los
 esquemas Zod de specs por categoría en cada ejecución. Se puede correr
 repetidamente sin riesgo — los upserts por `slug`/`sku`/email convergen en vez
 de duplicar.
 
 ```bash
-npm run seed             # se niega a correr con NODE_ENV=production
+npm run db:seed        # catálogo + usuarios; se niega con NODE_ENV=production
 ```
-
-## Políticas del asesor posventa (RAG)
-
-Plantillas de ejemplo de garantía, envíos, devoluciones, métodos de pago y
-privacidad en `docs/content/policies/<locale>/*.md` (es y en), marcadas como
-plantilla a revisar por el negocio. Se ingieren como documentos `POLICY` para
-el endpoint `POST /api/v1/advisor/support` (ver ADR `0036`):
-
-```bash
-npm run seed:policies    # idempotente: omite lo que no cambió; también se niega en producción
-```
-
-## Corpus RAG del asesor (fichas, FAQ, garantía, políticas)
-
-El corpus curado que ve el panel `/admin/documentos` y alimenta a los
-asesores (producto-QA sobre SPEC_SHEET; soporte sobre POLICY/WARRANTY/FAQ,
-ver ADR `0048`):
-
-- **Ficha técnica por producto** (`SPEC_SHEET`, `source = 'auto:product'`):
-  una por cada producto ACTIVE, generada desde la fila del catálogo.
-- **FAQ** (`docs/content/faqs/<locale>/*.md`, `type: FAQ`).
-- **Garantía** (`docs/content/warranty/<locale>/*.md`, `type: WARRANTY`).
-- **Políticas** (`docs/content/policies/<locale>/*.md`, `type: POLICY`).
-
-```bash
-npm run seed:documents  # superset idempotente de seed:policies + fichas + FAQ + garantía; también se niega en producción
-```
-
-Re-ejecutarlo converge sin duplicar chunks (omite lo no cambiado por
-`content_hash`) y reaviva filas seed borradas desde el admin. Manuales
-(`source = 'manual'`) nunca se tocan.
 
 Usuarios de prueba (solo desarrollo local, nunca producción):
 
@@ -92,18 +71,86 @@ Usuarios de prueba (solo desarrollo local, nunca producción):
 | ADMIN    | `admin@techadvisor.local`    | `Admin123!`    |
 | CUSTOMER | `customer@techadvisor.local` | `Customer123!` |
 
+## Corpus RAG del asesor (fichas, FAQ, garantía, políticas)
+
+El corpus curado que ve el panel `/admin/documentos` y alimenta a los
+asesores (producto-QA sobre SPEC_SHEET; soporte sobre POLICY/WARRANTY/FAQ,
+ver ADRs `0036` y `0048`):
+
+- **Ficha técnica por producto** (`SPEC_SHEET`, `source = 'auto:product'`):
+  una por cada producto ACTIVE, generada desde la fila del catálogo y
+  re-sincronizada al escribir productos.
+- **FAQ** (`docs/content/faqs/<locale>/*.md`, `type: FAQ`).
+- **Garantía** (`docs/content/warranty/<locale>/*.md`, `type: WARRANTY`).
+- **Políticas** (`docs/content/policies/<locale>/*.md`, `type: POLICY`;
+  plantillas de ejemplo de garantía, envíos, devoluciones, métodos de pago y
+  privacidad, marcadas como plantilla a revisar por el negocio).
+
+```bash
+npm run db:seed:documents  # superset idempotente (alias: seed:documents); también se niega en producción
+```
+
+Re-ejecutarlo converge sin duplicar chunks (omite lo no cambiado por
+`content_hash`) y reaviva filas seed borradas desde el admin. Manuales
+(`source = 'manual'`) nunca se tocan.
+
+## API
+
+Prefijo `/api/v1`, errores uniformes `{ statusCode, code, message, details? }`.
+Contrato OpenAPI en `GET /api/v1/docs-json` (solo no-producción o protegido;
+ver ADR `0004`).
+
+| Grupo | Endpoints principales |
+| ----- | --------------------- |
+| Sistema | `GET /health`, `GET /config/public` (moneda base, monedas, locales) |
+| Auth | registro, login, refresh, logout (`/auth/*`, rate limit) |
+| Catálogo | `GET /catalog/*` (listado con filtros/orden/paginación, detalle, specs por categoría) |
+| Inventario | reserva al crear orden; admin ajusta stock |
+| Carrito | invitado y autenticado, merge al iniciar sesión (`/cart/*`) |
+| Órdenes | creación, listado, máquina de estados + expiración (`/orders/*`) |
+| Pagos | `POST /payments/checkout`, `POST /payments/webhook` (firma verificada, idempotente) |
+| Búsqueda | `GET /search?q=` (semántica híbrida + fallback léxico, rate limit) |
+| Asesor | `POST /advisor/product-qa`, `POST /advisor/compare`, `POST /advisor/support`, `POST /advisor/feedback`, sesiones `GET+POST /advisor/sessions`, `GET+POST+DELETE /advisor/sessions/:id(+/messages)` |
+| Compatibilidad | `POST /compatibility/check` (reglas deterministas sobre `specs`) |
+| Reseñas | `POST /reviews`, `GET /reviews/product/:id(+/summary)`; moderación en admin |
+| Admin | CRUD productos/categorías/marcas, inventario, órdenes, `GET /admin/metrics/overview`, documentos, reindex, panel del asesor (sin respuesta, feedback) |
+| Observabilidad | log de llamadas IA solo-metadata (proveedor, modelo, latencia, tokens, costo estimado) |
+
+Principio rector: precio, stock, specs y garantías se leen de SQL o de
+documentos recuperados; el LLM solo explica y recomienda, con citas `[1]`,
+`[2]` validadas contra los chunks entregados. Sin evidencia suficiente, el
+asesor se abstiene y registra en `UnansweredQuery`.
+
+## IA agnóstica al proveedor
+
+Todo el código de negocio depende de las interfaces `LlmProvider` y
+`EmbeddingProvider` (`src/modules/ai/`); los SDKs viven solo en
+`src/modules/ai/adapters/`. Cambiar de modelo es solo configuración.
+
+Adapters LLM: `fake` (offline/dev/tests), `openai-compatible`
+(`/chat/completions` + SSE), `openai-responses` (formato `/responses`),
+`anthropic` (nativo). Adapters de embeddings: `fake`, `openai-compatible`
+(por defecto: `text-embedding-3-small`, 1536 dims), `nvidia` (nativo,
+`nemotron-3-embed-1b`, halfvec 2048). Ver ADRs `0016`–`0018`, `0024`,
+`0026`–`0028` y las variables `LLM_*` / `EMBEDDING_*` en `.env.example`.
+Prompts versionados en `docs/rag/prompts/` (`product-qa`, `intent`,
+`recommend`, `compare`, `support`, `review-summary`).
+
 ## Scripts
 
 | Script                     | Qué hace                                                                                 |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
-| `npm run dev`              | arranca en modo watch (puerto 3001)                                                      |
-| `npm run seed`             | carga datos de desarrollo/demo                                                           |
-| `npm run seed:policies`      | ingiere las políticas de ejemplo como documentos `POLICY` (idempotente)                  |
-| `npm run seed:documents`     | ingiere el corpus RAG curado (SPEC_SHEET por producto + FAQ + WARRANTY + POLICY, idempotente) |
+| `npm run dev`              | arranca en modo watch (puerto 3001; alias `start:dev`)                                   |
 | `npm run build`            | compila a `dist/`                                                                        |
+| `npm run db:generate`      | regenera el cliente Prisma                                                               |
+| `npm run db:migrate`       | aplica migraciones (`prisma migrate dev`)                                                |
+| `npm run db:seed`          | carga catálogo + usuarios de desarrollo (idempotente)                                    |
+| `npm run db:seed:policies` | ingiere las políticas de ejemplo como documentos `POLICY` (idempotente)                  |
+| `npm run db:seed:documents`| ingiere el corpus RAG curado (SPEC_SHEET por producto + FAQ + WARRANTY + POLICY, idempotente; alias `seed:documents`) |
 | `npm run worker:ingestion` | corre el worker de ingesta RAG (desde `dist/`, requiere `npm run build` antes)           |
 | `npm run worker:reindex`   | corre el worker de reindex de embeddings (desde `dist/`, requiere `npm run build` antes) |
-| `npm run lint`             | oxlint (con tipos)                                                                       |
+| `npm run eval`             | evaluación RAG (ver [Evaluación](#evaluación-rag))                                       |
+| `npm run lint`             | eslint                                                                                   |
 | `npm run typecheck`        | `tsc --noEmit`                                                                           |
 | `npm test`                 | tests unitarios (vitest)                                                                 |
 | `npm run test:e2e`         | tests e2e de la API (vitest + supertest)                                                 |
@@ -179,8 +226,43 @@ arriba. Esas URLs fixture NO son pagables: abrir una en el navegador
 muestra la página "This link is incomplete" de Stripe; es el
 comportamiento esperado del mock, no un bug. Deja `STRIPE_BASE_URL` vacío para volver a la API test real.
 
+## Evaluación RAG
+
+Dataset `eval/qa.jsonl` (54 preguntas: respondibles, no respondibles,
+adversariales/prompt injection) + umbrales en `eval/thresholds.json`
+(recall@5, abstención correcta, citas válidas, cero alucinaciones).
+Ver ADRs `0038` y `0041`; guía en `docs/rag/evaluacion.md`.
+
+```bash
+npm run eval              # reporte con el dataset completo
+npm run eval -- --offline # sin llamadas a IA (retrieval + citas)
+npm run eval -- --strict  # falla si no se cumplen los umbrales (puerta de CI)
+```
+
+El script acepta proveedor y modelo por env/flags para comparar modelos con
+el mismo dataset; los resultados se guardan por modelo en `eval/results/`.
+
+## Verificación (tras cada tarea, en esta carpeta)
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run test:e2e
+npm run build
+docker compose up -d && curl -f http://localhost:3001/api/v1/health
+npm run eval -- --offline
+```
+
 ## Estructura
 
-- `src/modules/` — módulos de funcionalidad (catalog, orders, …)
+- `src/modules/` — funcionalidad (auth, catalog, inventory, cart, orders,
+  payments, admin, ai, ingestion, reindex, retrieval, search, advisor,
+  compatibility, reviews, observability, …)
 - `src/common/` — filtros, guards, interceptors, utils
-- `src/config/` — configuración validada por env
+- `src/config/` — configuración validada por env (Zod)
+- `prisma/` — esquema, migraciones, seed y seed-data
+- `docs/decisions/` — ADRs del backend
+- `docs/rag/prompts/` — prompts versionados del asesor
+- `docs/content/` — FAQ, garantías y políticas a ingestar (es/en)
+- `eval/` — dataset, harness y umbrales de evaluación RAG
