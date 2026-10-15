@@ -309,6 +309,10 @@ export class CatalogService {
       name: pickLocalizedText(row.translations, locale, (row) => row.name, row.name),
       slug: row.slug,
       parentSlug: row.parent?.slug ?? null,
+      imageUrl: row.imageUrl ?? null,
+      // When the image has no alt, clients fall back to the category name.
+      imageAlt: row.imageAlt ?? null,
+      showInHome: row.showInHome,
       specsSchema: getSpecsFields(row.slug).map((field): SpecFieldDto => ({
         key: field.key,
         label: field.label,

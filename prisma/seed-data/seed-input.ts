@@ -23,6 +23,11 @@ export const seedCategorySchema = z.strictObject({
   name: nonEmptyString,
   /** Spanish translation (DEFAULT_LOCALE content lives in the base columns). */
   nameEs: nonEmptyString,
+  /** Single cover image: same https Unsplash photo shown today in home cards. */
+  imageUrl: z.string().min(1).max(2048).optional(),
+  imageAlt: z.string().max(200).optional(),
+  /** Home "shop by category" visibility (defaults to true, same as the DB). */
+  showInHome: z.boolean().default(true),
 });
 
 export const seedBrandSchema = z.strictObject({

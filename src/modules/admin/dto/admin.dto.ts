@@ -128,6 +128,24 @@ export class AdminCategoryDto {
   @ApiProperty({ example: null, nullable: true })
   parentId!: string | null;
 
+  @ApiProperty({
+    example:
+      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=800&auto=format&fit=crop',
+    nullable: true,
+    description: 'Single cover image (home "shop by category" card background).',
+  })
+  imageUrl!: string | null;
+
+  @ApiProperty({
+    example: 'Laptops',
+    nullable: true,
+    description: 'Cover image alt when set; otherwise clients fall back to the category name.',
+  })
+  imageAlt!: string | null;
+
+  @ApiProperty({ example: true, description: 'Whether the category shows in the home section.' })
+  showInHome!: boolean;
+
   @ApiProperty({ type: [AdminCategoryTranslationDto] })
   translations!: AdminCategoryTranslationDto[];
 }

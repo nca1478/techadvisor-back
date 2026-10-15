@@ -40,10 +40,24 @@ function validateProductImages(product: SeedProduct): void {
 async function seedCategories(prisma: PrismaClient, data: SeedData): Promise<Map<string, string>> {
   const idsBySlug = new Map<string, string>();
   for (const category of data.categories) {
+    if (category.imageUrl !== undefined) {
+      imageUrlSchema.parse(category.imageUrl);
+    }
     const row = await prisma.category.upsert({
       where: { slug: category.slug },
-      update: { name: category.name },
-      create: { slug: category.slug, name: category.name },
+      update: {
+        name: category.name,
+        imageUrl: category.imageUrl ?? null,
+        imageAlt: category.imageAlt ?? null,
+        showInHome: category.showInHome,
+      },
+      create: {
+        slug: category.slug,
+        name: category.name,
+        imageUrl: category.imageUrl ?? null,
+        imageAlt: category.imageAlt ?? null,
+        showInHome: category.showInHome,
+      },
     });
     await prisma.categoryTranslation.upsert({
       where: { categoryId_locale: { categoryId: row.id, locale: ES_LOCALE } },

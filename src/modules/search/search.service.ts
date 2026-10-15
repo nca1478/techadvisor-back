@@ -312,6 +312,9 @@ export class SearchService {
       ),
       slug: row.slug,
       parentSlug: row.parent?.slug ?? null,
+      imageUrl: row.imageUrl ?? null,
+      imageAlt: row.imageAlt ?? null,
+      showInHome: row.showInHome,
       specsSchema: getSpecsFields(row.slug).map((field) => ({
         key: field.key,
         label: field.label,

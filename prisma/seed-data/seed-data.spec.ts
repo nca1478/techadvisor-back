@@ -66,6 +66,18 @@ describe('seed fixtures', () => {
         expect(() => imageUrlSchema.parse(url), `image of ${product.sku}`).not.toThrow();
       }
     }
+    for (const category of data.categories) {
+      if (category.imageUrl !== undefined) {
+        expect(() => imageUrlSchema.parse(category.imageUrl as string)).not.toThrow();
+      }
+    }
+  });
+
+  it('gives every category a home cover image and visibility flag', () => {
+    for (const category of data.categories) {
+      expect(category.imageUrl?.length ?? 0, `cover of ${category.slug}`).toBeGreaterThan(0);
+      expect(typeof category.showInHome, `visibility of ${category.slug}`).toBe('boolean');
+    }
   });
 
   it('covers both languages, varied stock and both sockets', () => {

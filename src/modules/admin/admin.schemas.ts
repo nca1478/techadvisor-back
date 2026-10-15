@@ -198,6 +198,11 @@ const categoryTranslationSchema = z.object({
     .max(200, { error: 'translation.name must be at most 200 characters long' }),
 });
 
+const categoryImageAltSchema = z
+  .string({ error: 'imageAlt must be a string' })
+  .trim()
+  .max(200, { error: 'imageAlt must be at most 200 characters long' });
+
 /** Body for `POST /admin/categories`. */
 export const createCategorySchema = z.object({
   name: z
@@ -207,6 +212,11 @@ export const createCategorySchema = z.object({
     .max(200, { error: 'name must be at most 200 characters long' }),
   slug: slugSchema,
   parentId: z.uuid({ error: 'parentId must be a valid UUID' }).optional(),
+  /** Single cover image (same https rule as product images); omitted = no image. */
+  imageUrl: imageUrlSchema.nullable().optional(),
+  imageAlt: categoryImageAltSchema.nullable().optional(),
+  /** Home "shop by category" visibility; defaults to true (same as the DB). */
+  showInHome: z.boolean({ error: 'showInHome must be a boolean' }).default(true),
   translations: z
     .array(categoryTranslationSchema)
     .max(20, { error: 'at most 20 translations' })
@@ -220,6 +230,10 @@ export const updateCategorySchema = z.object({
   name: createCategorySchema.shape.name.optional(),
   slug: slugSchema.optional(),
   parentId: z.uuid({ error: 'parentId must be a valid UUID' }).nullable().optional(),
+  /** `null`/empty clears the cover image; omitted leaves it untouched. */
+  imageUrl: imageUrlSchema.nullable().optional(),
+  imageAlt: categoryImageAltSchema.nullable().optional(),
+  showInHome: z.boolean({ error: 'showInHome must be a boolean' }).optional(),
   translations: z
     .array(categoryTranslationSchema)
     .max(20, { error: 'at most 20 translations' })
