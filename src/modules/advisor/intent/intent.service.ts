@@ -186,6 +186,49 @@ export function completeMissingInfo(intent: PurchaseIntent): void {
  * `null` when nothing is missing. Spanish for `es*` locales, English
  * otherwise — matching the two UI languages. Pure, unit-testable.
  */
+export const CATEGORY_CLARIFICATION_ES =
+  '¿Qué tipo de producto buscas (portátil, procesador, memoria, …)?';
+export const CATEGORY_CLARIFICATION_EN =
+  'Which kind of product are you looking for (laptop, processor, memory, …)?';
+
+/** Display names of the known catalog categories, in slug order. */
+const KNOWN_CATEGORY_DISPLAY: ReadonlyArray<{ slug: string; es: string; en: string }> = [
+  { slug: 'laptops', es: 'portátiles', en: 'laptops' },
+  { slug: 'cpus', es: 'procesadores', en: 'processors' },
+  { slug: 'motherboards', es: 'placas base', en: 'motherboards' },
+  { slug: 'ram', es: 'memoria RAM', en: 'memory' },
+  { slug: 'gpus', es: 'tarjetas gráficas', en: 'graphics cards' },
+  { slug: 'storage', es: 'almacenamiento', en: 'storage' },
+  { slug: 'psus', es: 'fuentes de poder', en: 'power supplies' },
+  { slug: 'monitors', es: 'monitores', en: 'monitors' },
+];
+
+/**
+ * Whether a stored assistant message is the category clarification
+ * question (either locale). Used to detect a repeated turn: when the
+ * category still does not resolve afterwards, asking again would loop, so
+ * the caller answers terminally instead.
+ */
+export function isCategoryClarification(content: string): boolean {
+  const normalized = content.trim();
+  return normalized === CATEGORY_CLARIFICATION_ES || normalized === CATEGORY_CLARIFICATION_EN;
+}
+
+/**
+ * Terminal answer for an unresolvable category (e.g. headphones: no such
+ * category exists in the catalog). Lists what the advisor does cover so the
+ * user can redirect — never a repeated question. Pure, unit-testable.
+ */
+export function buildUnknownCategoryMessage(locale: string): string {
+  const spanish = locale.toLowerCase().startsWith('es');
+  const names = KNOWN_CATEGORY_DISPLAY.map((entry) => (spanish ? entry.es : entry.en));
+  const last = names[names.length - 1] ?? '';
+  const list = [...names.slice(0, -1), `${spanish ? 'y' : 'and'} ${last}`].join(', ');
+  return spanish
+    ? `Parece que buscas un tipo de producto que no está en mi catálogo. Trabajo con: ${list}. ¿Te interesa alguno de ellos?`
+    : `It looks like you are looking for a product type outside my catalog. I cover: ${list}. Are you interested in any of them?`;
+}
+
 export function buildClarificationQuestion(intent: PurchaseIntent, locale: string): string | null {
   if (intent.missingInfo.length === 0) {
     return null;
@@ -205,9 +248,7 @@ export function buildClarificationQuestion(intent: PurchaseIntent, locale: strin
         ? '¿Para qué vas a usarlo principalmente?'
         : 'What will you mainly use it for?';
     case 'category':
-      return spanish
-        ? '¿Qué tipo de producto buscas (portátil, procesador, memoria, …)?'
-        : 'Which kind of product are you looking for (laptop, processor, memory, …)?';
+      return spanish ? CATEGORY_CLARIFICATION_ES : CATEGORY_CLARIFICATION_EN;
     case 'brand':
       return spanish
         ? '¿Tienes alguna marca preferida (o alguna que quieras evitar)?'

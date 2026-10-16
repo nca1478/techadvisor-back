@@ -14,6 +14,7 @@ import type { RetrievalHit } from '../../retrieval/retrieval.service.js';
 import type { RetrievalService } from '../../retrieval/retrieval.service.js';
 import type { ChatSessionsService, ChatSessionOwner } from '../chat-sessions.service.js';
 import type { IntentService } from '../intent/intent.service.js';
+import { CATEGORY_CLARIFICATION_ES } from '../intent/intent.service.js';
 import type { PurchaseIntent } from '../intent/purchase-intent.schema.js';
 import { splitIntoDeltas } from '../chat-sessions.controller.js';
 import {
@@ -272,6 +273,41 @@ describe('RecommendService.recommend (unit, mocked database)', () => {
     expect(seenSql).toHaveLength(0);
     expect(retrievalSearch).not.toHaveBeenCalled();
     expect(llm.calls).toHaveLength(0);
+  });
+
+  it('answers terminally instead of looping when the category never resolves', async () => {
+    const { service, seenSql, llm, unansweredCreate } = buildService({
+      intent: laptopIntent({
+        categorySlug: undefined,
+        maxPrice: undefined,
+        minPrice: undefined,
+        useCases: [],
+        missingInfo: ['budget', 'use', 'category'],
+      }),
+      historyMessages: [
+        { role: 'USER', content: 'busco audifonos' },
+        { role: 'ASSISTANT', content: CATEGORY_CLARIFICATION_ES },
+      ],
+    });
+
+    const response = await service.recommend(SESSION_ID, OWNER, {
+      content: 'busco audifonos con cable',
+      locale: 'es',
+    });
+
+    expect(response.products).toEqual([]);
+    expect(response.clarifyingQuestion).toBeUndefined();
+    expect(response.message).toContain('portátiles');
+    expect(seenSql).toHaveLength(0);
+    expect(llm.calls).toHaveLength(0);
+    expect(unansweredCreate).toHaveBeenCalledWith({
+      data: {
+        query: 'busco audifonos con cable',
+        productId: null,
+        sessionId: SESSION_ID,
+        reason: 'unknown_category',
+      },
+    });
   });
 
   it('explains which constraint to relax when no candidates match (strict budget)', async () => {

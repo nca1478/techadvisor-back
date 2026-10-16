@@ -21,7 +21,12 @@ import { RetrievalService, type RetrievalHit } from '../../retrieval/retrieval.s
 import { buildCitations } from '../citations.js';
 import type { ProductQaCitationDto } from '../dto/advisor.dto.js';
 import { ChatSessionsService, type ChatSessionOwner } from '../chat-sessions.service.js';
-import { buildClarificationQuestion, IntentService } from '../intent/intent.service.js';
+import {
+  buildClarificationQuestion,
+  buildUnknownCategoryMessage,
+  IntentService,
+  isCategoryClarification,
+} from '../intent/intent.service.js';
 import type { PurchaseIntent } from '../intent/purchase-intent.schema.js';
 import {
   buildRecommendUserMessage,
@@ -225,10 +230,21 @@ export class RecommendService {
       throw mapProviderError(error, this.logger, this.llm.providerName);
     }
 
-    if (
-      purchaseIntent.categorySlug === undefined ||
-      (purchaseIntent.maxPrice === undefined && purchaseIntent.minPrice === undefined)
-    ) {
+    if (purchaseIntent.categorySlug === undefined) {
+      // No known category (e.g. headphones: the catalog has no such
+      // category, so extraction can never resolve it). Ask once; when the
+      // follow-up still resolves nothing, answer terminally instead of
+      // looping on the same question every turn (see ADR 0053).
+      const alreadyAsked = history.messages.some(
+        (message) => message.role === 'ASSISTANT' && isCategoryClarification(message.content),
+      );
+      if (alreadyAsked) {
+        return this.answerUnknownCategory(sessionId, owner, input.content, locale);
+      }
+      return this.answerClarification(sessionId, owner, purchaseIntent, locale);
+    }
+
+    if (purchaseIntent.maxPrice === undefined && purchaseIntent.minPrice === undefined) {
       return this.answerClarification(sessionId, owner, purchaseIntent, locale);
     }
 
@@ -300,6 +316,26 @@ export class RecommendService {
     });
     this.logger.debug('advisor recommend: clarifying question asked');
     return { message: clarifyingQuestion, products: [], clarifyingQuestion };
+  }
+
+  private async answerUnknownCategory(
+    sessionId: string,
+    owner: ChatSessionOwner,
+    question: string,
+    locale: string,
+  ): Promise<RecommendResponse> {
+    const message = buildUnknownCategoryMessage(locale);
+    await this.prisma.unansweredQuery.create({
+      data: { query: question, productId: null, sessionId, reason: 'unknown_category' },
+    });
+    await this.chatSessions.addMessage(sessionId, owner, {
+      role: 'ASSISTANT',
+      content: message,
+      citations: [],
+      products: [],
+    });
+    this.logger.debug('advisor recommend: unknown category, answered terminally');
+    return { message, products: [] };
   }
 
   private async answerNoCandidates(

@@ -4,8 +4,10 @@ import { FakeLlmAdapter } from '../../ai/adapters/fake-llm.adapter.js';
 import { LlmJsonError } from '../../ai/common/generate-json.js';
 import {
   buildClarificationQuestion,
+  buildUnknownCategoryMessage,
   completeMissingInfo,
   IntentService,
+  isCategoryClarification,
   sanitizeIntent,
 } from './intent.service.js';
 import {
@@ -255,6 +257,53 @@ describe('buildClarificationQuestion', () => {
 
     expect(buildClarificationQuestion(intent, 'es')).toContain('presupuesto');
     expect(buildClarificationQuestion(intent, 'en')).toContain('budget');
+  });
+});
+
+describe('isCategoryClarification', () => {
+  it('matches the category question in both locales, nothing else', () => {
+    const es = buildClarificationQuestion(
+      {
+        useCases: ['study'],
+        mustHaveSpecs: {},
+        brandsInclude: [],
+        brandsExclude: [],
+        missingInfo: ['category'],
+      },
+      'es',
+    );
+    const en = buildClarificationQuestion(
+      {
+        useCases: ['study'],
+        mustHaveSpecs: {},
+        brandsInclude: [],
+        brandsExclude: [],
+        missingInfo: ['category'],
+      },
+      'en',
+    );
+    expect(es).not.toBeNull();
+    expect(en).not.toBeNull();
+    expect(isCategoryClarification(es ?? '')).toBe(true);
+    expect(isCategoryClarification(en ?? '')).toBe(true);
+    expect(isCategoryClarification('¿Cuál es tu presupuesto máximo (y en qué moneda)?')).toBe(
+      false,
+    );
+    expect(isCategoryClarification('Te recomiendo este portátil.')).toBe(false);
+  });
+});
+
+describe('buildUnknownCategoryMessage', () => {
+  it('names the covered categories instead of asking again (es/en)', () => {
+    const es = buildUnknownCategoryMessage('es');
+    const en = buildUnknownCategoryMessage('en');
+
+    expect(es).toContain('portátiles');
+    expect(es).toContain('monitores');
+    expect(es).not.toContain('¿Qué tipo de producto buscas');
+    expect(en).toContain('laptops');
+    expect(en).toContain('monitors');
+    expect(en).not.toContain('Which kind of product');
   });
 });
 
