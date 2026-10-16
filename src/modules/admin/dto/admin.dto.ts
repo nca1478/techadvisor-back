@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ShippingAddressDto } from '../../orders/dto/orders.dto.js';
+import { OrderStatusHistoryDto, ShippingAddressDto } from '../../orders/dto/orders.dto.js';
 
 /** Fixed per-currency price row (see ADR 0007). */
 export class AdminPriceDto {
@@ -283,6 +283,12 @@ export class AdminOrderDto {
 
   @ApiProperty({ type: ShippingAddressDto })
   shipping!: ShippingAddressDto;
+
+  @ApiProperty({
+    type: [OrderStatusHistoryDto],
+    description: 'Recorded status changes, oldest first. Empty for pre-history orders.',
+  })
+  statusHistory!: OrderStatusHistoryDto[];
 
   @ApiProperty({ example: '2026-10-06T12:00:00.000Z' })
   createdAt!: Date;

@@ -313,6 +313,8 @@ model Order {
   shipping    Json        @db.JsonB
   items       OrderItem[]
   payments    Payment[]
+  /** One row per status change (see ADR 0057); the source for per-step dates. */
+  statusHistory OrderStatusHistory[]
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -337,6 +339,21 @@ model OrderItem {
   @@unique([orderId, productId])
   @@index([productId])
   @@map("order_items")
+}
+
+/** Status-change audit trail for an order (see ADR 0057). */
+model OrderStatusHistory {
+  id      String @id @default(uuid()) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /** Status before the change; NULL for the initial entry written at creation. */
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus  @map("to_status")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@map("order_status_history")
 }
 
 // --- Payments (Fase 1) -------------------------------------------------------

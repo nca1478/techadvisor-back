@@ -63,6 +63,7 @@ type AdminOrderRow = Prisma.OrderGetPayload<{
   include: {
     items: { include: { product: { select: { name: true; slug: true } } } };
     user: { select: { name: true; email: true } };
+    statusHistory: true;
   };
 }>;
 
@@ -650,6 +651,7 @@ export class AdminService {
             include: { product: { select: { name: true, slug: true } } },
           },
           user: { select: { name: true, email: true } },
+          statusHistory: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
         },
       }),
     ]);
@@ -671,6 +673,7 @@ export class AdminService {
           include: { product: { select: { name: true, slug: true } } },
         },
         user: { select: { name: true, email: true } },
+        statusHistory: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
     if (row === null) {
@@ -978,6 +981,11 @@ export class AdminService {
       // `shipping` is a validated address snapshot (JsonB); the orders API
       // guarantees its shape, so a narrow cast suffices here.
       shipping: row.shipping as unknown as ShippingAddressDto,
+      statusHistory: row.statusHistory.map((entry) => ({
+        from: entry.fromStatus,
+        to: entry.toStatus,
+        at: entry.createdAt,
+      })),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

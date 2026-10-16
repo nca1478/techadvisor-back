@@ -6,7 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { pickLocalizedText, resolveLocale, resolvePrice } from '../catalog/catalog.service.js';
 import { InsufficientStockException } from '../inventory/inventory.errors.js';
 import { InventoryService } from '../inventory/inventory.service.js';
-import type { OrderItemDto, OrderResponseDto } from './dto/orders.dto.js';
+import type { OrderItemDto, OrderResponseDto, OrderStatusHistoryDto } from './dto/orders.dto.js';
 import { assertTransitionAllowed } from './order-status.js';
 import {
   EmptyCartException,
@@ -22,6 +22,16 @@ interface PricedLine {
   name: string;
   slug: string;
 }
+
+/** Minimal shape of a status-history row (oldest-first callers sort on read). */
+interface StatusHistoryInput {
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  createdAt: Date;
+}
+
+/** Chronological history order (deterministic on timestamp ties). */
+const statusHistoryOrderBy = [{ createdAt: 'asc' }, { id: 'asc' }] as const;
 
 /**
  * Checkout from the authenticated user cart (see ADR 0011).
@@ -155,11 +165,16 @@ export class OrdersService {
         },
         include: { items: true },
       });
+      await tx.orderStatusHistory.create({
+        data: { orderId: order.id, fromStatus: null, toStatus: 'PENDING_PAYMENT' },
+      });
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       return order;
     });
 
-    return this.toResponse(created, priced, input.shipping);
+    return this.toResponse(created, priced, input.shipping, [
+      { fromStatus: null, toStatus: 'PENDING_PAYMENT', createdAt: created.createdAt },
+    ]);
   }
 
   async listOrders(userId: string, query: OrderQuery): Promise<OrderResponseDto[]> {
@@ -175,9 +190,12 @@ export class OrdersService {
             product: { include: { translations: { where: { locale } } } },
           },
         },
+        statusHistory: { orderBy: [...statusHistoryOrderBy] },
       },
     });
-    return rows.map((row) => this.toResponse(row, this.toPricedLines(row, locale), row.shipping));
+    return rows.map((row) =>
+      this.toResponse(row, this.toPricedLines(row, locale), row.shipping, row.statusHistory),
+    );
   }
 
   async getOrderById(
@@ -190,6 +208,7 @@ export class OrdersService {
       row,
       this.toPricedLines(row, this.resolvedLocale(query.locale)),
       row.shipping,
+      row.statusHistory,
     );
   }
 
@@ -208,6 +227,9 @@ export class OrdersService {
         data: { status: 'CANCELLED' },
         include: { items: true },
       });
+      await tx.orderStatusHistory.create({
+        data: { orderId: row.id, fromStatus: row.status, toStatus: 'CANCELLED' },
+      });
       for (const item of [...next.items].sort((a, b) => (a.productId < b.productId ? -1 : 1))) {
         await tx.$executeRaw`
           UPDATE "inventory"
@@ -217,7 +239,10 @@ export class OrdersService {
       }
       return next;
     });
-    return this.toResponse(updated, this.toPricedLines(row, locale), row.shipping);
+    return this.toResponse(updated, this.toPricedLines(row, locale), row.shipping, [
+      ...row.statusHistory,
+      { fromStatus: row.status, toStatus: 'CANCELLED', createdAt: updated.updatedAt },
+    ]);
   }
 
   /**
@@ -243,6 +268,9 @@ export class OrdersService {
       assertTransitionAllowed(row.status, to);
       const from = row.status;
       await tx.order.update({ where: { id: row.id }, data: { status: to } });
+      await tx.orderStatusHistory.create({
+        data: { orderId: row.id, fromStatus: from, toStatus: to },
+      });
       const ordered = [...row.items].sort((a, b) => (a.productId < b.productId ? -1 : 1));
       if (to === 'PAID') {
         for (const item of ordered) {
@@ -307,6 +335,7 @@ export class OrdersService {
             product: { include: { translations: { where: { locale } } } },
           },
         },
+        statusHistory: { orderBy: [...statusHistoryOrderBy] },
       },
     });
     if (row === null) {
@@ -341,6 +370,7 @@ export class OrdersService {
     order: { id: string; status: OrderStatus; currency: string; createdAt: Date; updatedAt: Date },
     priced: PricedLine[],
     shipping: unknown,
+    statusHistory: StatusHistoryInput[],
   ): OrderResponseDto {
     const items: OrderItemDto[] = priced.map((line) => ({
       productId: line.productId,
@@ -350,6 +380,11 @@ export class OrdersService {
       unitPriceAmount: line.unitPriceAmount,
       lineTotalAmount: line.unitPriceAmount * line.qty,
     }));
+    const history: OrderStatusHistoryDto[] = statusHistory.map((entry) => ({
+      from: entry.fromStatus,
+      to: entry.toStatus,
+      at: entry.createdAt,
+    }));
     return {
       id: order.id,
       status: order.status,
@@ -358,6 +393,7 @@ export class OrdersService {
       itemCount: items.reduce((sum, item) => sum + item.qty, 0),
       shipping: shipping as OrderResponseDto['shipping'],
       items,
+      statusHistory: history,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

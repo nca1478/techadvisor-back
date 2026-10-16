@@ -21,6 +21,7 @@ interface OrderBody {
   itemCount: number;
   shipping: Record<string, unknown>;
   items: OrderItemBody[];
+  statusHistory: { from: string | null; to: string; at: string }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -243,6 +244,10 @@ describe('Orders (e2e)', () => {
       itemCount: 3,
       shipping: { ...shipping, country: 'ES' },
     });
+    // Creation records the initial status-history entry with its date/time.
+    expect(order.statusHistory).toHaveLength(1);
+    expect(order.statusHistory[0]).toMatchObject({ from: null, to: 'PENDING_PAYMENT' });
+    expect(new Date(order.statusHistory[0].at).toString()).not.toBe('Invalid Date');
     expect(order.items).toHaveLength(2);
     const byId = new Map(order.items.map((item) => [item.productId, item]));
     expect(byId.get(productAId)).toMatchObject({
@@ -382,6 +387,11 @@ describe('Orders (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(cancelled.body as OrderBody).toMatchObject({ id: order.id, status: 'CANCELLED' });
+    // The cancellation appended a dated history entry after the initial one.
+    const cancelledHistory = (cancelled.body as OrderBody).statusHistory;
+    expect(cancelledHistory).toHaveLength(2);
+    expect(cancelledHistory[1]).toMatchObject({ from: 'PENDING_PAYMENT', to: 'CANCELLED' });
+    expect(new Date(cancelledHistory[1].at).toString()).not.toBe('Invalid Date');
     expect(await reserved(productCId)).toMatchObject({
       stock: before.stock,
       reserved: before.reserved,

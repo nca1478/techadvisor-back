@@ -27,6 +27,7 @@ interface AdminOrderBody {
   currency: string;
   totalAmount: number;
   items: { productId: string; qty: number; unitPriceAmount: number }[];
+  statusHistory: { from: string | null; to: string; at: string }[];
 }
 
 /**
@@ -705,6 +706,25 @@ describe('Admin management (e2e)', () => {
       .set(auth)
       .send({ status: 'PROCESSING' })
       .expect(422);
+
+    // Every admin transition recorded its date/time in the status history:
+    // the initial entry plus PAID→PROCESSING→SHIPPED→DELIVERED (PAID itself
+    // was entered with a direct DB update, like the production webhook
+    // would, so it has no history row of its own).
+    const detail = await request(server)
+      .get(`/api/v1/admin/orders/${orderId}`)
+      .set(auth)
+      .expect(200);
+    const history = (detail.body as AdminOrderBody).statusHistory;
+    expect(history[0]).toMatchObject({ from: null, to: 'PENDING_PAYMENT' });
+    expect(history.slice(-3).map((entry) => entry.to)).toEqual([
+      'PROCESSING',
+      'SHIPPED',
+      'DELIVERED',
+    ]);
+    for (const entry of history) {
+      expect(new Date(entry.at).toString()).not.toBe('Invalid Date');
+    }
 
     const delivered = await request(server)
       .get('/api/v1/admin/orders?status=DELIVERED')

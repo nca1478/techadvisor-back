@@ -56,6 +56,28 @@ export class OrderItemDto {
   lineTotalAmount!: number;
 }
 
+/** One recorded order status change, oldest first (see ADR 0057). */
+export class OrderStatusHistoryDto {
+  // Explicit `type` so OpenAPI emits a nullable string (without it the
+  // union's design:type degrades to `object` and clients see `Record`).
+  @ApiProperty({
+    example: 'PAID',
+    nullable: true,
+    type: String,
+    description: 'Status before the change; null for the initial entry at creation.',
+  })
+  from!: string | null;
+
+  @ApiProperty({ example: 'PROCESSING' })
+  to!: string;
+
+  @ApiProperty({
+    example: '2026-10-06T12:00:00.000Z',
+    description: 'UTC date/time when the order entered `to`.',
+  })
+  at!: Date;
+}
+
 export class OrderResponseDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   id!: string;
@@ -80,6 +102,12 @@ export class OrderResponseDto {
 
   @ApiProperty({ type: [OrderItemDto] })
   items!: OrderItemDto[];
+
+  @ApiProperty({
+    type: [OrderStatusHistoryDto],
+    description: 'Recorded status changes, oldest first. Empty for pre-history orders.',
+  })
+  statusHistory!: OrderStatusHistoryDto[];
 
   @ApiProperty({ example: '2026-10-06T12:00:00.000Z' })
   createdAt!: Date;
