@@ -137,8 +137,10 @@ export class AdminAdvisorService {
 
   /**
    * Forward-only triage transition (`NEW` → `IN_REVIEW` → `RESOLVED`).
-   * Same-state and backward moves are rejected so resolved gaps cannot
-   * silently reopen; `RESOLVED` is terminal.
+   * Same-state moves are a no-op returning the current row: frequency
+   * buckets mix statuses, so a bucket action legitimately re-targets rows
+   * that already hold it (see ADR 0054). Backward moves are rejected so
+   * resolved gaps cannot silently reopen; `RESOLVED` is terminal.
    */
   async updateUnansweredStatus(id: string, status: 'NEW' | 'IN_REVIEW' | 'RESOLVED') {
     const current = await this.prisma.unansweredQuery.findUnique({ where: { id } });
@@ -147,7 +149,10 @@ export class AdminAdvisorService {
     }
     const from = STATUS_RANK[current.status] ?? 0;
     const to = STATUS_RANK[status] ?? 0;
-    if (to <= from) {
+    if (to === from) {
+      return toUnansweredDto(current);
+    }
+    if (to < from) {
       throw new BadRequestException({
         message: `Cannot move unanswered query from ${current.status} to ${status}: triage only moves forward (NEW → IN_REVIEW → RESOLVED)`,
         details: { from: current.status, to: status },

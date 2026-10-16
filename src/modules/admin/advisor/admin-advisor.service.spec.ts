@@ -78,7 +78,7 @@ describe('AdminAdvisorService (unit, mocked database)', () => {
     expect(result.data[0]?.ids).toEqual(['a', 'b']);
   });
 
-  it('moves triage forward and rejects same-state, backward and unknown rows', async () => {
+  it('moves triage forward, no-ops same-state, and rejects backward and unknown rows', async () => {
     unansweredQuery.findUnique.mockResolvedValue(row({ status: 'NEW' }));
     unansweredQuery.update.mockImplementation(({ data }: { data: { status: string } }) =>
       Promise.resolve(row({ status: data.status })),
@@ -87,9 +87,9 @@ describe('AdminAdvisorService (unit, mocked database)', () => {
     expect(updated.status).toBe('IN_REVIEW');
 
     unansweredQuery.findUnique.mockResolvedValue(row({ status: 'IN_REVIEW' }));
-    await expect(service.updateUnansweredStatus('row-id', 'IN_REVIEW')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    const noop = await service.updateUnansweredStatus('row-id', 'IN_REVIEW');
+    expect(noop.status).toBe('IN_REVIEW');
+    expect(unansweredQuery.update).toHaveBeenCalledTimes(1);
     await expect(service.updateUnansweredStatus('row-id', 'NEW')).rejects.toBeInstanceOf(
       BadRequestException,
     );

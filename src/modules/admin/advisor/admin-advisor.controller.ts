@@ -64,7 +64,8 @@ export class AdminAdvisorController {
 
   @Patch('unanswered/:id')
   @ApiOperation({
-    summary: 'Move an abstention forward in triage (NEW → IN_REVIEW → RESOLVED)',
+    summary:
+      'Move an abstention forward in triage (NEW → IN_REVIEW → RESOLVED; same-state is a no-op)',
   })
   @ApiOkResponse({ type: AdminUnansweredQueryDto })
   updateUnansweredStatus(
