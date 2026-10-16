@@ -348,6 +348,40 @@ describe('Admin documents (e2e)', () => {
       .expect(400);
   });
 
+  it('lists documents filtered by title search (case-insensitive substring)', async () => {
+    const uploaded = await request(app.getHttpServer())
+      .post('/api/v1/admin/documents/upload')
+      .set(authHeader(adminToken))
+      .attach('file', Buffer.from(longMarkdown(`titlesearch-${suffix}`, 12), 'utf8'), {
+        filename: 'searchable.md',
+        contentType: 'text/markdown',
+      })
+      .field('title', `Zaphyr Warranty Guide ${suffix}`)
+      .field('type', 'WARRANTY')
+      .field('locale', 'en')
+      .expect(201);
+    const wantedId = (uploaded.body as DocumentBody).id;
+    createdDocumentIds.push(wantedId);
+
+    const matched = await request(app.getHttpServer())
+      .get(`/api/v1/admin/documents?q=${encodeURIComponent(`warranty guide ${suffix}`)}`)
+      .set(authHeader(adminToken))
+      .expect(200);
+    const matchedIds = ((matched.body as { data?: DocumentBody[] }).data ?? []).map(
+      (row) => row.id,
+    );
+    expect(matchedIds).toContain(wantedId);
+
+    const unmatched = await request(app.getHttpServer())
+      .get(`/api/v1/admin/documents?q=${encodeURIComponent(`no-such-title-${suffix}`)}`)
+      .set(authHeader(adminToken))
+      .expect(200);
+    const unmatchedIds = ((unmatched.body as { data?: DocumentBody[] }).data ?? []).map(
+      (row) => row.id,
+    );
+    expect(unmatchedIds).not.toContain(wantedId);
+  });
+
   it('re-ingests an unchanged document idempotently (same chunk count)', async () => {
     const id = createdDocumentIds.at(0) ?? '';
     const before = await prisma.chunk.count({ where: { documentId: id } });

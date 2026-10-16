@@ -96,7 +96,8 @@ export class AdminDocumentsController {
 
   @Get()
   @ApiOperation({
-    summary: 'List corpus documents (soft-deleted excluded) with status and type filters',
+    summary:
+      'List corpus documents (soft-deleted excluded) with status, type and title search filters',
   })
   @ApiOkResponse({ type: AdminDocumentListDto })
   listDocuments(
