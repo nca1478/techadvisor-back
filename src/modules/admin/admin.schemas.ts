@@ -189,6 +189,16 @@ export const adminProductListQuerySchema = z.object({
 
 export type AdminProductListQuery = z.output<typeof adminProductListQuerySchema>;
 
+/**
+ * Query for `GET /admin/products/metrics`. `low_stock` uses the same
+ * threshold semantics as the list filter (inclusive of `out_of_stock`).
+ */
+export const adminProductMetricsQuerySchema = z.object({
+  lowStockThreshold: z.coerce.number().int().min(1).max(1000).default(5),
+});
+
+export type AdminProductMetricsQuery = z.output<typeof adminProductMetricsQuerySchema>;
+
 const categoryTranslationSchema = z.object({
   locale: localeSchema,
   name: z

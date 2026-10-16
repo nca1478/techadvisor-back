@@ -107,6 +107,37 @@ export class AdminProductListDto {
   totalPages!: number;
 }
 
+/**
+ * Catalog counters for the products back-office header (see ADR 0055):
+ * totals by status plus stock health over `inventory` (`stock - reserved`,
+ * same definition as the list filters and the overview attention counts).
+ */
+export class AdminProductMetricsDto {
+  @ApiProperty({ example: 248, description: 'Products in every status.' })
+  total!: number;
+
+  @ApiProperty({ example: 211, description: 'Products with status ACTIVE.' })
+  active!: number;
+
+  @ApiProperty({
+    example: 23,
+    description: 'Available units at or below the threshold (includes out of stock).',
+  })
+  lowStock!: number;
+
+  @ApiProperty({ example: 14, description: 'Zero available units.' })
+  outOfStock!: number;
+
+  @ApiProperty({ example: 230, description: 'More than zero available units.' })
+  inStock!: number;
+
+  @ApiProperty({ example: 7, description: 'Products with held units (reserved > 0).' })
+  reserved!: number;
+
+  @ApiProperty({ example: 5, description: 'Threshold applied to lowStock.' })
+  lowStockThreshold!: number;
+}
+
 export class AdminCategoryTranslationDto {
   @ApiProperty({ example: 'es' })
   locale!: string;

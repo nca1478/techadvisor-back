@@ -30,6 +30,7 @@ import {
   adjustInventorySchema,
   adminOrderListQuerySchema,
   adminProductListQuerySchema,
+  adminProductMetricsQuerySchema,
   createBrandSchema,
   createCategorySchema,
   createProductSchema,
@@ -44,6 +45,7 @@ import {
   type AdjustInventoryInput,
   type AdminOrderListQuery,
   type AdminProductListQuery,
+  type AdminProductMetricsQuery,
   type CreateBrandInput,
   type CreateCategoryInput,
   type CreateProductInput,
@@ -66,6 +68,7 @@ import {
   AdminOrderListDto,
   AdminProductDto,
   AdminProductListDto,
+  AdminProductMetricsDto,
 } from './dto/admin.dto.js';
 
 /**
@@ -98,6 +101,15 @@ export class AdminController {
     @Query(new ZodValidationPipe(adminProductListQuerySchema)) query: AdminProductListQuery,
   ): Promise<AdminProductListDto> {
     return this.admin.listProducts(query);
+  }
+
+  @Get('products/metrics')
+  @ApiOperation({ summary: 'Catalog counters: totals plus stock health for the products header' })
+  @ApiOkResponse({ type: AdminProductMetricsDto })
+  productMetrics(
+    @Query(new ZodValidationPipe(adminProductMetricsQuerySchema)) query: AdminProductMetricsQuery,
+  ): Promise<AdminProductMetricsDto> {
+    return this.admin.getProductMetrics(query);
   }
 
   @Post('products')

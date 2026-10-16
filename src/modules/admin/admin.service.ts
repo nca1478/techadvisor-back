@@ -31,11 +31,13 @@ import type {
   AdminMetricsOverviewDto,
   AdminProductDto,
   AdminProductListDto,
+  AdminProductMetricsDto,
 } from './dto/admin.dto.js';
 import type {
   AdjustInventoryInput,
   AdminOrderListQuery,
   AdminProductListQuery,
+  AdminProductMetricsQuery,
   CreateBrandInput,
   CreateCategoryInput,
   CreateProductInput,
@@ -129,6 +131,40 @@ export class AdminService {
       limit: query.limit,
       total,
       totalPages: Math.max(1, Math.ceil(total / query.limit)),
+    };
+  }
+
+  /**
+   * Catalog counters for the products header (see ADR 0055). Stock health
+   * reuses the list-filter definition (`stock - reserved`, computed in
+   * TypeScript like the overview attention counts): `low_stock` is
+   * inclusive of `out_of_stock`.
+   */
+  async getProductMetrics(query: AdminProductMetricsQuery): Promise<AdminProductMetricsDto> {
+    const [total, active, inventoryRows] = await this.prisma.$transaction([
+      this.prisma.product.count(),
+      this.prisma.product.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.inventory.findMany({ select: { stock: true, reserved: true } }),
+    ]);
+    let outOfStock = 0;
+    let lowStock = 0;
+    let inStock = 0;
+    let reserved = 0;
+    for (const item of inventoryRows) {
+      const available = item.stock - item.reserved;
+      if (available <= 0) outOfStock += 1;
+      else inStock += 1;
+      if (available <= query.lowStockThreshold) lowStock += 1;
+      if (item.reserved > 0) reserved += 1;
+    }
+    return {
+      total,
+      active,
+      lowStock,
+      outOfStock,
+      inStock,
+      reserved,
+      lowStockThreshold: query.lowStockThreshold,
     };
   }
 
