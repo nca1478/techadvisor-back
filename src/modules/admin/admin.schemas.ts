@@ -326,6 +326,8 @@ export const adminOrderListQuerySchema = z.object({
   userId: z.uuid({ error: 'userId must be a valid UUID' }).optional(),
   from: z.string().trim().min(1).optional(),
   to: z.string().trim().min(1).optional(),
+  /** Customer search: matches the buyer name or email (same rule as products `q`). */
+  q: z.string().trim().min(1).max(100).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

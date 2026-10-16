@@ -626,6 +626,15 @@ export class AdminService {
     if (query.userId !== undefined) {
       where.userId = query.userId;
     }
+    if (query.q !== undefined) {
+      const text = query.q;
+      where.user = {
+        OR: [
+          { name: { contains: text, mode: 'insensitive' } },
+          { email: { contains: text, mode: 'insensitive' } },
+        ],
+      };
+    }
     const from = this.parseDateOrThrow(query.from, 'from');
     const to = this.parseDateOrThrow(query.to, 'to');
     if (from !== undefined || to !== undefined) {

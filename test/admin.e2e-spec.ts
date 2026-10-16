@@ -726,6 +726,21 @@ describe('Admin management (e2e)', () => {
       expect(new Date(entry.at).toString()).not.toBe('Invalid Date');
     }
 
+    // Customer search: the run-unique email fragment matches, anything
+    // else matches nothing.
+    const byCustomer = await request(server)
+      .get(`/api/v1/admin/orders?q=${encodeURIComponent(`e2e-adm-customer-${suffix}`)}`)
+      .set(auth)
+      .expect(200);
+    expect((byCustomer.body as { data: AdminOrderBody[] }).data.map((row) => row.id)).toContain(
+      orderId,
+    );
+    const noMatch = await request(server)
+      .get('/api/v1/admin/orders?q=nobody-matches-this-customer')
+      .set(auth)
+      .expect(200);
+    expect((noMatch.body as { data: unknown[] }).data).toEqual([]);
+
     const delivered = await request(server)
       .get('/api/v1/admin/orders?status=DELIVERED')
       .set(auth)
