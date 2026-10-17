@@ -1586,7 +1586,8 @@
       "gpu": "RTX 5090 24GB",
       "cpu": "Intel Core Ultra 9 275HX",
       "storage_gb": 2048,
-      "battery_wh": 90
+      "battery_wh": 90,
+      "weight_kg": 3.3
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/01/52361_1.jpg",
@@ -2059,7 +2060,9 @@
       "cpu": "Intel Core i5-12450H",
       "storage_gb": 512,
       "screen_inches": 15.6,
-      "gpu": "Intel UHD Graphics"
+      "gpu": "Intel UHD Graphics",
+      "weight_kg": 1.62,
+      "battery_wh": 47
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/52304.png",
@@ -2085,7 +2088,9 @@
       "storage_type": "NVME",
       "screen_inches": 14,
       "cpu": "Intel Core i7-1355U",
-      "gpu": "Intel Iris Xe Graphics"
+      "gpu": "Intel Iris Xe Graphics",
+      "weight_kg": 1.5,
+      "battery_wh": 47
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/07/52322.1.png",
@@ -2111,7 +2116,9 @@
       "storage_gb": 512,
       "storage_type": "NVME",
       "screen_inches": 16,
-      "gpu": "AMD Graphics"
+      "gpu": "AMD Graphics",
+      "weight_kg": 1.7,
+      "battery_wh": 70
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/12/52351.1.jpg",
@@ -2137,7 +2144,8 @@
       "screen_inches": 14,
       "gpu": "Radeon 860m",
       "cpu": "AMD Ryzen AI 7 350",
-      "storage_gb": 1024
+      "storage_gb": 1024,
+      "battery_wh": 70
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/05/52381_1.jpg",
@@ -2189,7 +2197,9 @@
       "storage_type": "NVME",
       "screen_inches": 15.6,
       "gpu": "Intel Graphics",
-      "cpu": "Intel Core i5-13420H"
+      "cpu": "Intel Core i5-13420H",
+      "weight_kg": 1.61,
+      "battery_wh": 47
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/07/52390_1.jpg",
@@ -2203,8 +2213,8 @@
     "slug": "asus-vivobook-m1605naq-mb101-ryzen-7-170-16gb-ram-m-2-nvme-5-54685",
     "name": "ASUS Vivobook M1605naq-Mb101| Ryzen 7 170| 16GB RAM| M.2 NVMe 512GB| AMD Graphics| 16\" Wuxga| Black Laptop",
     "nameEs": "Portátil Asus Vivobook M1605naq-Mb101 | Ryz 7 170 | 16gb De Ram | M.2 Nvme 512gb | Amd Graphics | 16″ Pulgadas Wuxga | Negro",
-    "description": "ASUS 16-inch laptop 16 GB of RAM, 512 GB NVMe SSD storage and integrated graphics. It uses integrated graphics for everyday use, study and office work.",
-    "descriptionEs": "Portátil ASUS de 16 pulgadas 16 GB de RAM, almacenamiento SSD de 512 GB y gráficos integrados. Usa gráficos integrados para el uso diario, el estudio y la oficina.",
+    "description": "ASUS 16-inch laptop with AMD Ryzen 7 170, 16 GB of RAM, NVMe SSD storage and integrated graphics. It uses integrated graphics for everyday use, study and office work.",
+    "descriptionEs": "Portátil ASUS de 16 pulgadas con AMD Ryzen 7 170, 16 GB de RAM, almacenamiento SSD NVMe y gráficos integrados. Usa gráficos integrados para el uso diario, el estudio y la oficina.",
     "brand": "asus",
     "category": "laptops",
     "priceAmount": 72908,
@@ -2214,7 +2224,9 @@
       "storage_gb": 512,
       "storage_type": "NVME",
       "screen_inches": 16,
-      "gpu": "Amd Graphics"
+      "gpu": "Amd Graphics",
+      "cpu": "AMD Ryzen 7 170",
+      "weight_kg": 1.88
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/08/52392_1.jpg",
