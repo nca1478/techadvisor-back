@@ -44,6 +44,26 @@ function norm(value: string): string {
   return value.trim().toUpperCase();
 }
 
+export function normalizeSocket(value: string): string {
+  let compact = value
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9]+/g, '');
+  compact = compact.replace(/SOCKET/g, '').replace(/ZOCALO/g, '');
+  if (compact.startsWith('FCLGA')) {
+    return compact.slice('FCLGA'.length);
+  }
+  if (compact.startsWith('LGA')) {
+    return compact.slice('LGA'.length);
+  }
+  if (compact.startsWith('PGA') || compact.startsWith('BGA')) {
+    return compact.slice(3);
+  }
+  return compact;
+}
+
 function isOfCategory(product: CompatibilityProduct, slug: string): boolean {
   return product.categorySlug.trim().toLowerCase() === slug;
 }
@@ -222,7 +242,18 @@ function checkCpuSocket(
       );
       continue;
     }
-    if (norm(cpuSocketRaw) !== norm(boardSocketRaw)) {
+    const cpuKey = normalizeSocket(cpuSocketRaw);
+    const boardKey = normalizeSocket(boardSocketRaw);
+    if (cpuKey.length === 0 || boardKey.length === 0) {
+      issues.push(
+        makeIssue('cpu-socket', 'warning', [cpu.id, board.id], 'cpu-socket.missing-data', locale, {
+          cpu: cpu.name,
+          board: board.name,
+        }),
+      );
+      continue;
+    }
+    if (cpuKey !== boardKey) {
       issues.push(
         makeIssue('cpu-socket', 'error', [cpu.id, board.id], 'cpu-socket.mismatch', locale, {
           cpu: cpu.name,

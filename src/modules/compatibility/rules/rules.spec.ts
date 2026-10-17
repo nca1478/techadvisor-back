@@ -5,7 +5,13 @@ import type {
   CompatibilityRule,
 } from './compatibility.types.js';
 import { resolveCompatibilityLocale } from './messages.js';
-import { checkCompatibility, classifyStorageNeed, estimateDrawW, requiredPsuW } from './rules.js';
+import {
+  checkCompatibility,
+  classifyStorageNeed,
+  estimateDrawW,
+  normalizeSocket,
+  requiredPsuW,
+} from './rules.js';
 
 /**
  * Unit tests for the deterministic compatibility engine (see ADR 0034).
@@ -180,6 +186,58 @@ describe('cpu-socket rule', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.severity).toBe('warning');
     expect(result.compatible).toBe(false);
+  });
+
+  it('matches socket aliases for the same Intel socket (LGA1851 family)', () => {
+    const aliases = [
+      '1851',
+      'LGA1851',
+      'FCLGA1851',
+      'LGA 1851',
+      'Socket LGA1851',
+      'FCLGA-1851',
+      'FCLGA‑1851',
+      'socket lga1851',
+    ];
+    for (const boardSocket of aliases) {
+      const cpu = product('cpus', 'Intel Core Ultra 5 235', { socket: 'LGA1851', tdp_w: 65 });
+      const board = product('motherboards', 'ASUS ROG Maximus Z890 Hero', {
+        socket: boardSocket,
+        ram_type: 'DDR5',
+      });
+      const result = checkCompatibility([cpu, board], 'en');
+      expect(ruleIssues(result, 'cpu-socket')).toEqual([]);
+    }
+  });
+
+  it('matches a bare-digits board against an FCLGA cpu (1851 <> FCLGA1851)', () => {
+    const cpu = product('cpus', 'Intel Core Ultra 5 235', { socket: 'FCLGA1851', tdp_w: 65 });
+    const board = product('motherboards', 'ASUS ROG Maximus Z890 Hero', {
+      socket: '1851',
+      ram_type: 'DDR5',
+    });
+    expect(ruleIssues(checkCompatibility([cpu, board], 'es'), 'cpu-socket')).toEqual([]);
+  });
+
+  it('still fails for different sockets after normalization (1851 vs 1700, AM5 vs AM4)', () => {
+    const cpu1851 = product('cpus', 'Intel Core Ultra 5 235', { socket: 'LGA1851' });
+    const board1700 = product('motherboards', 'Board LGA1700', { socket: 'LGA 1700' });
+    expect(ruleIssues(checkCompatibility([cpu1851, board1700], 'en'), 'cpu-socket')).toHaveLength(
+      1,
+    );
+    const am5 = product('cpus', 'AMD Ryzen 5 7600', { socket: 'Socket AM5' });
+    const am4board = product('motherboards', 'Board AM4', { socket: 'AM4' });
+    const mismatch = ruleIssues(checkCompatibility([am5, am4board], 'en'), 'cpu-socket');
+    expect(mismatch).toHaveLength(1);
+    expect(mismatch[0]?.severity).toBe('error');
+  });
+
+  it('normalizes socket keys deterministically', () => {
+    expect(normalizeSocket('Socket LGA1851')).toBe('1851');
+    expect(normalizeSocket('FCLGA‑1851')).toBe('1851');
+    expect(normalizeSocket('LGA 1700')).toBe('1700');
+    expect(normalizeSocket('Socket AM5')).toBe('AM5');
+    expect(normalizeSocket('AM5')).toBe('AM5');
   });
 });
 
