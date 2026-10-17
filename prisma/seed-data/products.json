@@ -12,7 +12,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 3050",
-      "vram_gb": 6
+      "vram_gb": 6,
+      "tdp_w": 70,
+      "boost_mhz": 1492,
+      "length_mm": 189
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/02/3644.png",
@@ -34,7 +37,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 3050",
-      "vram_gb": 6
+      "vram_gb": 6,
+      "tdp_w": 70,
+      "boost_mhz": 1537,
+      "length_mm": 201
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/03/3645.1.png",
@@ -56,7 +62,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-3050",
-      "vram_gb": 6
+      "vram_gb": 6,
+      "tdp_w": 70,
+      "boost_mhz": 1492,
+      "length_mm": 174
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/03/3650.1.png",
@@ -78,7 +87,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-4080 Super",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 320,
+      "boost_mhz": 2595,
+      "length_mm": 342
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/11/3684.1.png",
@@ -100,7 +112,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 4080 Super",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 320,
+      "boost_mhz": 2670,
+      "length_mm": 358
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/3688.rtx.png",
@@ -122,7 +137,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-4080 Super",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 320,
+      "boost_mhz": 2580,
+      "length_mm": 322
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/02/3692.png",
@@ -144,7 +162,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "RTX-4060 Ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 165,
+      "boost_mhz": 2625,
+      "length_mm": 227
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/02/3696.png",
@@ -165,7 +186,11 @@
     "priceAmount": 231934,
     "status": "ACTIVE",
     "specs": {
-      "chipset": "Rtx 5080"
+      "chipset": "Rtx 5080",
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2730,
+      "length_mm": 340
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/02/3694.png",
@@ -186,7 +211,11 @@
     "priceAmount": 250091,
     "status": "ACTIVE",
     "specs": {
-      "chipset": "Rtx 5080"
+      "chipset": "Rtx 5080",
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2730,
+      "length_mm": 348
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/02/3704.png",
@@ -208,7 +237,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "GeForce RTX 5070 Ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2527,
+      "length_mm": 304
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/02/3702_8.png",
@@ -230,7 +262,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Radeon RX 9070 XT",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 304,
+      "boost_mhz": 3030,
+      "length_mm": 312
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/4177.png",
@@ -252,7 +287,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-5090",
-      "vram_gb": 32
+      "vram_gb": 32,
+      "tdp_w": 575,
+      "boost_mhz": 2610,
+      "length_mm": 358
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/3708.png",
@@ -274,7 +312,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2640,
+      "length_mm": 288
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/3699.png",
@@ -296,7 +337,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2805,
+      "length_mm": 360
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/3713.1.png",
@@ -318,7 +362,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2805,
+      "length_mm": 360
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/3693.1.png",
@@ -340,7 +387,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5070 Ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2588,
+      "length_mm": 342
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/3714.1.png",
@@ -362,7 +412,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5090",
-      "vram_gb": 32
+      "vram_gb": 32,
+      "tdp_w": 575,
+      "boost_mhz": 2407,
+      "length_mm": 348
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/3717.1.png",
@@ -384,7 +437,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-5070ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2527,
+      "length_mm": 304
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/3716.1.png",
@@ -406,7 +462,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-5070ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2542,
+      "length_mm": 304
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/3715.1.png",
@@ -428,7 +487,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx-5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2640,
+      "length_mm": 303
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/3719.1.png",
@@ -450,7 +512,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5070",
-      "vram_gb": 12
+      "vram_gb": 12,
+      "tdp_w": 250,
+      "boost_mhz": 2587,
+      "length_mm": 290
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/05/3723.1.png",
@@ -472,7 +537,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5060",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 145,
+      "boost_mhz": 2527,
+      "length_mm": 197
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/05/3731.1.png",
@@ -494,7 +562,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Radeon Rx 9060xt",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 150,
+      "boost_mhz": 3330,
+      "length_mm": 304
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/06/1-1.png",
@@ -516,7 +587,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Radeon Rx 9060xt",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 182,
+      "boost_mhz": 3340,
+      "length_mm": 304
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/06/1-2.png",
@@ -538,7 +612,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5060ti",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 180,
+      "boost_mhz": 2647,
+      "length_mm": 300
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/06/3737.1.png",
@@ -560,7 +637,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5060ti",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 180,
+      "boost_mhz": 2647,
+      "length_mm": 247
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/07/3743.1.png",
@@ -582,7 +662,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5060ti",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 180,
+      "boost_mhz": 2647,
+      "length_mm": 300
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/07/3742.1.png",
@@ -604,7 +687,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5070",
-      "vram_gb": 12
+      "vram_gb": 12,
+      "tdp_w": 250,
+      "boost_mhz": 2512,
+      "length_mm": 249
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/07/3739.1.png",
@@ -626,7 +712,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5050",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 130,
+      "boost_mhz": 2602,
+      "length_mm": 197
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/09/3757.1.png",
@@ -648,7 +737,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5070",
-      "vram_gb": 12
+      "vram_gb": 12,
+      "tdp_w": 250,
+      "boost_mhz": 2542,
+      "length_mm": 231
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/09/3753_1.jpg",
@@ -670,7 +762,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx-5050",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 130,
+      "boost_mhz": 2602,
+      "length_mm": 197
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/10/3765_1.jpg",
@@ -692,7 +787,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Radeon Rx 9060 Xt",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 160,
+      "boost_mhz": 3320,
+      "length_mm": 281
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/12/1.jpeg",
@@ -714,7 +812,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx 5050",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 130,
+      "boost_mhz": 2677,
+      "length_mm": 203
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/12/3768.1.jpg",
@@ -736,7 +837,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx 5090",
-      "vram_gb": 32
+      "vram_gb": 32,
+      "tdp_w": 575,
+      "boost_mhz": 2580,
+      "length_mm": 348
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/02/3771_1.jpg",
@@ -758,7 +862,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Radeon Rx 9060 Xt",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 182,
+      "boost_mhz": 3230,
+      "length_mm": 202
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/02/4188_1.jpg",
@@ -780,7 +887,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Radeon Rx 9060 Xt",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 182,
+      "boost_mhz": 3230,
+      "length_mm": 202
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/02/4187_1.jpg",
@@ -802,7 +912,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5090",
-      "vram_gb": 32
+      "vram_gb": 32,
+      "tdp_w": 800,
+      "boost_mhz": 2730,
+      "length_mm": 260
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/04/3782_1.jpg",
@@ -824,7 +937,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5070ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2497,
+      "length_mm": 261
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/05/3783_1.jpg",
@@ -846,7 +962,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5060",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 155,
+      "boost_mhz": 2625,
+      "length_mm": 300
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/06/3784_1.jpg",
@@ -868,7 +987,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Geforce Rtx 5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2670,
+      "length_mm": 304
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/07/3700_1-1.jpg",
@@ -890,7 +1012,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2640,
+      "length_mm": 288
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/07/3786_1.jpg",
@@ -912,7 +1037,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5070 Ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2572,
+      "length_mm": 338
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/09/3790_1.jpg",
@@ -934,7 +1062,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5070 Ti",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 300,
+      "boost_mhz": 2572,
+      "length_mm": 338
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/09/3791_1.jpg",
@@ -956,7 +1087,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5080",
-      "vram_gb": 16
+      "vram_gb": 16,
+      "tdp_w": 360,
+      "boost_mhz": 2805,
+      "length_mm": 220
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/09/3789_1.jpg",
@@ -978,7 +1112,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5090",
-      "vram_gb": 32
+      "vram_gb": 32,
+      "tdp_w": 575,
+      "boost_mhz": 2550,
+      "length_mm": 342
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/09/3793_2.jpg",
@@ -1000,7 +1137,10 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "Rtx 5050",
-      "vram_gb": 8
+      "vram_gb": 8,
+      "tdp_w": 130,
+      "boost_mhz": 2587,
+      "length_mm": 201
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/09/3792_2.jpg",
@@ -2013,7 +2153,8 @@
     "specs": {
       "ram_type": "DDR4",
       "ram_gb": 8,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 3200
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2020/11/5104.png"],
     "stock": 16
@@ -2032,7 +2173,8 @@
     "specs": {
       "ram_type": "DDR4",
       "ram_gb": 8,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 3200
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2023/11/5330.png"],
     "stock": 24
@@ -2051,7 +2193,8 @@
     "specs": {
       "ram_type": "DDR4",
       "ram_gb": 16,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 3200
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2023/11/5330.png"],
     "stock": 11
@@ -2194,7 +2337,8 @@
     "specs": {
       "ram_type": "DDR4",
       "ram_gb": 32,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 3200
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/11/6134.1.jpg"],
     "stock": 20
@@ -2213,7 +2357,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 16,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 5600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/02/6136.1.jpg",
@@ -2236,7 +2381,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 16,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 5600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/02/1.jpeg",
@@ -2258,7 +2404,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 24,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 6000
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/03/5529.jpg",
@@ -2281,7 +2428,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 48,
-      "modules": 2
+      "modules": 2,
+      "speed_mt_s": 5200
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/04/5442_1.jpg",
@@ -2304,7 +2452,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 96,
-      "modules": 2
+      "modules": 2,
+      "speed_mt_s": 5200
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/04/5511_1.jpg",
@@ -2327,7 +2476,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 16,
-      "modules": 1
+      "modules": 1,
+      "speed_mt_s": 5600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/04/6138_1.jpg",
@@ -2350,7 +2500,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 64,
-      "modules": 2
+      "modules": 2,
+      "speed_mt_s": 6000
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/05/5515_1.jpg",
@@ -2373,7 +2524,8 @@
     "specs": {
       "ram_type": "DDR5",
       "ram_gb": 32,
-      "modules": 2
+      "modules": 2,
+      "speed_mt_s": 6000
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/04/5532_1.jpg",
@@ -3371,7 +3523,12 @@
       "chipset": "A520M-K",
       "form_factor": "Micro-ATX",
       "ram_type": "DDR4",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM4",
+      "max_ram_gb": 64,
+      "max_ram_speed_mt_s": 5100,
+      "m2_slots": 1,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2020/10/34148.png",
@@ -3395,7 +3552,12 @@
       "chipset": "X670E-PLUS",
       "form_factor": "ATX",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "max_ram_gb": 192,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/01/34220.png",
@@ -3419,7 +3581,12 @@
       "chipset": "A520M-A",
       "form_factor": "Micro-ATX",
       "ram_type": "DDR4",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM4",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 4866,
+      "m2_slots": 1,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/05/34199.1.png",
@@ -3442,7 +3609,12 @@
       "chipset": "B550M-A",
       "form_factor": "Micro-ATX",
       "ram_type": "DDR4",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM4",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 4866,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/05/34180.png",
@@ -3466,7 +3638,12 @@
       "chipset": "B550M-K",
       "form_factor": "Micro-ATX",
       "ram_type": "DDR4",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM4",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 4866,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/05/34150.3.png",
@@ -3489,7 +3666,13 @@
     "specs": {
       "chipset": "A520M-K",
       "ram_type": "DDR4",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM4",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 64,
+      "max_ram_speed_mt_s": 5100,
+      "m2_slots": 1,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/10/34251.png",
@@ -3512,7 +3695,13 @@
     "specs": {
       "chipset": "A620M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7600,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/10/34243.3.png",
@@ -3535,7 +3724,13 @@
     "specs": {
       "chipset": "X670E-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 192,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/10/34237.png",
@@ -3558,7 +3753,13 @@
     "specs": {
       "chipset": "B650E-F",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 192,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2023/11/34232.png",
@@ -3581,7 +3782,13 @@
     "specs": {
       "chipset": "Z790-P",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7000,
+      "m2_slots": 4,
+      "sata_ports": 6
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/02/33349.1.png",
@@ -3604,7 +3811,13 @@
     "specs": {
       "chipset": "B760M-P",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 6800,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/03/33353.1.png",
@@ -3627,7 +3840,13 @@
     "specs": {
       "chipset": "B760M-PLUS",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 192,
+      "max_ram_speed_mt_s": 7800,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/06/33358.png",
@@ -3649,7 +3868,13 @@
     "specs": {
       "chipset": "X670E",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7800,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/09/34276.png",
@@ -3672,7 +3897,13 @@
     "specs": {
       "chipset": "B760-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "ATX",
+      "max_ram_gb": 192,
+      "max_ram_speed_mt_s": 7800,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/10/33324.1.png",
@@ -3695,7 +3926,13 @@
     "specs": {
       "chipset": "B650M-B",
       "ram_type": "DDR5",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 6800,
+      "m2_slots": 1,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/10/34279.4.png",
@@ -3718,7 +3955,13 @@
     "specs": {
       "chipset": "X870",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 4,
+      "sata_ports": 2
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/10/34281.6.png",
@@ -3741,7 +3984,13 @@
     "specs": {
       "chipset": "B650M",
       "ram_type": "DDR5",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 7800,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/11/34283.png",
@@ -3764,7 +4013,13 @@
     "specs": {
       "chipset": "B650",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/11/34285.1.png",
@@ -3787,7 +4042,13 @@
     "specs": {
       "chipset": "B650",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/11/342856.1.png",
@@ -3810,7 +4071,13 @@
     "specs": {
       "chipset": "Z890-P",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8666,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/33361.6.png",
@@ -3833,7 +4100,13 @@
     "specs": {
       "chipset": "Z890M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8666,
+      "m2_slots": 3,
+      "sata_ports": 6
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/33363.1.png",
@@ -3856,7 +4129,13 @@
     "specs": {
       "chipset": "X870",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8400,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/34287.2.png",
@@ -3878,7 +4157,14 @@
     "status": "ACTIVE",
     "specs": {
       "ram_type": "DDR5",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "LGA1700",
+      "chipset": "H610",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 96,
+      "max_ram_speed_mt_s": 5600,
+      "m2_slots": 1,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/01/33367.2.png",
@@ -3901,7 +4187,13 @@
     "specs": {
       "chipset": "B840M-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7600,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/01/34288-2.png",
@@ -3924,7 +4216,13 @@
     "specs": {
       "chipset": "B860M-PLUS",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8800,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/01/33369.png",
@@ -3947,7 +4245,13 @@
     "specs": {
       "chipset": "B860-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8600,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/01/33370-4.png",
@@ -3970,7 +4274,13 @@
     "specs": {
       "chipset": "B860-F",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9066,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/01/33371-6.png",
@@ -3993,7 +4303,13 @@
     "specs": {
       "chipset": "B860M-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8666,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33373.png",
@@ -4016,7 +4332,13 @@
     "specs": {
       "chipset": "Z890-S",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8800,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33374.png",
@@ -4039,7 +4361,13 @@
     "specs": {
       "chipset": "B860",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8800,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33375.png",
@@ -4062,7 +4390,13 @@
     "specs": {
       "chipset": "B850",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/34299.png",
@@ -4085,7 +4419,13 @@
     "specs": {
       "chipset": "X870",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/34298.png",
@@ -4108,7 +4448,13 @@
     "specs": {
       "chipset": "Z890M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9200,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33377.png",
@@ -4131,7 +4477,13 @@
     "specs": {
       "chipset": "Z890",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9200,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33378-1.png",
@@ -4154,7 +4506,13 @@
     "specs": {
       "chipset": "Z890",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9200,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33379.png",
@@ -4177,7 +4535,13 @@
     "specs": {
       "chipset": "B860M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9200,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33379-1.png",
@@ -4200,7 +4564,13 @@
     "specs": {
       "chipset": "B860",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9200,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/33383.1.png",
@@ -4223,7 +4593,13 @@
     "specs": {
       "chipset": "Z890M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9066,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/33384.1.png",
@@ -4246,7 +4622,13 @@
     "specs": {
       "chipset": "X870E",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 4,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/34303.1.png",
@@ -4269,7 +4651,13 @@
     "specs": {
       "chipset": "Z890",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 9200,
+      "m2_slots": 6,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/05/33385.1.png",
@@ -4292,7 +4680,13 @@
     "specs": {
       "chipset": "B760M",
       "ram_type": "DDR4",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 5333,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/06/33386.1.png",
@@ -4315,7 +4709,13 @@
     "specs": {
       "chipset": "Z790-E",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "ATX",
+      "max_ram_gb": 192,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 5,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/07/33388.1.png",
@@ -4338,7 +4738,13 @@
     "specs": {
       "chipset": "B650M-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 2,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 96,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/07/34309.1.png",
@@ -4361,7 +4767,13 @@
     "specs": {
       "chipset": "B760M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7600,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/08/33392_1.png",
@@ -4384,7 +4796,13 @@
     "specs": {
       "chipset": "B650M",
       "ram_type": "DDR5",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 7200,
+      "m2_slots": 1,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/08/34310_1.png",
@@ -4407,7 +4825,13 @@
     "specs": {
       "chipset": "X870E",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 5,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/08/34311.1.png",
@@ -4430,7 +4854,13 @@
     "specs": {
       "chipset": "B840M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/10/B840M-DS3H_01.png",
@@ -4453,7 +4883,13 @@
     "specs": {
       "chipset": "B840M-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7600,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/10/34313.1.jpg",
@@ -4476,7 +4912,13 @@
     "specs": {
       "chipset": "B760M-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7200,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/11/33397.1.jpg",
@@ -4499,7 +4941,13 @@
     "specs": {
       "chipset": "B850M-A",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8000,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/01/34320.1.jpg",
@@ -4522,7 +4970,13 @@
     "specs": {
       "chipset": "B850M-K",
       "ram_type": "DDR5",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/01/34319.1.jpg",
@@ -4545,7 +4999,13 @@
     "specs": {
       "chipset": "B860-PLUS",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1851",
+      "form_factor": "ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8666,
+      "m2_slots": 3,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/01/33399.1.jpg",
@@ -4566,7 +5026,15 @@
     "priceAmount": 38160,
     "status": "ACTIVE",
     "specs": {
-      "chipset": "Z790"
+      "chipset": "Z790",
+      "socket": "LGA1700",
+      "form_factor": "ATX",
+      "ram_type": "DDR5",
+      "ram_slots": 4,
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 7200,
+      "m2_slots": 4,
+      "sata_ports": 6
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/01/33400.1.jpg",
@@ -4589,7 +5057,13 @@
     "specs": {
       "chipset": "B850M",
       "ram_type": "DDR5",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 256,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/01/34326.1.jpg",
@@ -4612,7 +5086,13 @@
     "specs": {
       "chipset": "B850M-AYW",
       "ram_type": "DDR5",
-      "ram_slots": 2
+      "ram_slots": 2,
+      "socket": "AM5",
+      "form_factor": "Micro-ATX",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 8200,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/03/34318.jpg",
@@ -4634,7 +5114,14 @@
     "status": "ACTIVE",
     "specs": {
       "chipset": "B760M",
-      "ram_slots": 4
+      "ram_slots": 4,
+      "socket": "LGA1700",
+      "form_factor": "Micro-ATX",
+      "ram_type": "DDR4",
+      "max_ram_gb": 128,
+      "max_ram_speed_mt_s": 5333,
+      "m2_slots": 2,
+      "sata_ports": 4
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/09/33402_1.jpg",
@@ -4724,7 +5211,8 @@
     "status": "ACTIVE",
     "specs": {
       "efficiency": "80+ Gold",
-      "modular": "full-modular"
+      "modular": "full-modular",
+      "wattage_w": 1200
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/14237.3.png",
@@ -4815,7 +5303,8 @@
     "status": "ACTIVE",
     "specs": {
       "wattage_w": 650,
-      "modular": "non-modular"
+      "modular": "non-modular",
+      "efficiency": "80+ Bronze"
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/14245.png",
@@ -4861,7 +5350,7 @@
     "specs": {
       "wattage_w": 1200,
       "efficiency": "80+ Gold",
-      "modular": "non-modular"
+      "modular": "full-modular"
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/04/14248.png",
@@ -4907,7 +5396,7 @@
     "specs": {
       "wattage_w": 1000,
       "efficiency": "80+ Platinum",
-      "modular": "non-modular"
+      "modular": "full-modular"
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/10/14264_1.jpg",
@@ -4952,7 +5441,8 @@
     "status": "ACTIVE",
     "specs": {
       "efficiency": "80+ Platinum",
-      "modular": "full-modular"
+      "modular": "full-modular",
+      "wattage_w": 1500
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/02/14266.1.jpg",
@@ -5090,8 +5580,10 @@
     "specs": {
       "socket": "LGA1700",
       "cores": 12,
-      "base_ghz": 1.6,
-      "boost_ghz": 4.9
+      "base_ghz": 2.1,
+      "boost_ghz": 4.9,
+      "threads": 20,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2023/07/1106.png"],
     "stock": 14
@@ -5110,8 +5602,10 @@
     "specs": {
       "socket": "LGA1700",
       "cores": 24,
-      "base_ghz": 1.65,
-      "boost_ghz": 5.8
+      "base_ghz": 3.2,
+      "boost_ghz": 6,
+      "threads": 32,
+      "tdp_w": 125
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/01/1122.png"],
     "stock": 18
@@ -5130,8 +5624,10 @@
     "specs": {
       "socket": "LGA1700",
       "cores": 20,
-      "base_ghz": 1.5,
-      "boost_ghz": 5.4
+      "base_ghz": 2.1,
+      "boost_ghz": 5.4,
+      "threads": 28,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/01/1127.png"],
     "stock": 23
@@ -5150,8 +5646,10 @@
     "specs": {
       "socket": "LGA1700",
       "cores": 24,
-      "base_ghz": 1.5,
-      "boost_ghz": 5.8
+      "base_ghz": 2,
+      "boost_ghz": 5.8,
+      "threads": 32,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/01/1122.png"],
     "stock": 24
@@ -5171,7 +5669,9 @@
       "socket": "AM5",
       "cores": 8,
       "base_ghz": 4.2,
-      "boost_ghz": 5.1
+      "boost_ghz": 5.1,
+      "threads": 16,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/02/2093.1.png"],
     "stock": 0
@@ -5191,7 +5691,9 @@
       "socket": "AM5",
       "cores": 6,
       "base_ghz": 4.3,
-      "boost_ghz": 5
+      "boost_ghz": 5,
+      "threads": 12,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/02/2092.1.png"],
     "stock": 13
@@ -5211,7 +5713,9 @@
       "socket": "AM5",
       "cores": 6,
       "base_ghz": 3.5,
-      "boost_ghz": 5
+      "boost_ghz": 5,
+      "threads": 12,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/02/2094.1.png"],
     "stock": 15
@@ -5230,8 +5734,10 @@
     "specs": {
       "socket": "LGA1700",
       "cores": 20,
-      "base_ghz": 2.5,
-      "boost_ghz": 5.6
+      "base_ghz": 3.4,
+      "boost_ghz": 5.6,
+      "threads": 28,
+      "tdp_w": 125
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/02/1126.png"],
     "stock": 22
@@ -5249,7 +5755,11 @@
     "status": "ACTIVE",
     "specs": {
       "socket": "AM5",
-      "cores": 8
+      "cores": 8,
+      "threads": 16,
+      "tdp_w": 120,
+      "base_ghz": 4.2,
+      "boost_ghz": 5
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/05/2089.png"],
     "stock": 25
@@ -5268,8 +5778,10 @@
     "specs": {
       "socket": "LGA1700",
       "cores": 10,
-      "base_ghz": 1.8,
-      "boost_ghz": 4.7
+      "base_ghz": 2.5,
+      "boost_ghz": 4.7,
+      "threads": 16,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/02/1129.1.png"],
     "stock": 12
@@ -5289,7 +5801,9 @@
       "socket": "AM5",
       "cores": 8,
       "base_ghz": 3.8,
-      "boost_ghz": 5.5
+      "boost_ghz": 5.5,
+      "threads": 16,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/09/2097.png"],
     "stock": 18
@@ -5308,7 +5822,10 @@
     "specs": {
       "socket": "AM5",
       "cores": 12,
-      "base_ghz": 5.6
+      "base_ghz": 4.4,
+      "threads": 24,
+      "tdp_w": 120,
+      "boost_ghz": 5.6
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/09/2098.png"],
     "stock": 19
@@ -5328,7 +5845,9 @@
       "socket": "AM4",
       "cores": 8,
       "base_ghz": 3.8,
-      "boost_ghz": 4.8
+      "boost_ghz": 4.8,
+      "threads": 16,
+      "tdp_w": 105
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/09/2099.png"],
     "stock": 20
@@ -5348,7 +5867,9 @@
       "socket": "AM5",
       "cores": 16,
       "base_ghz": 4.3,
-      "boost_ghz": 5.7
+      "boost_ghz": 5.7,
+      "threads": 32,
+      "tdp_w": 170
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/09/2098.png"],
     "stock": 9
@@ -5367,8 +5888,10 @@
     "specs": {
       "socket": "LGA1851",
       "cores": 20,
-      "base_ghz": 3.3,
-      "boost_ghz": 5.5
+      "base_ghz": 3.9,
+      "boost_ghz": 5.5,
+      "threads": 20,
+      "tdp_w": 125
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/1137.1.png",
@@ -5390,8 +5913,10 @@
     "specs": {
       "socket": "LGA1851",
       "cores": 20,
-      "base_ghz": 3.3,
-      "boost_ghz": 5.5
+      "base_ghz": 3.9,
+      "boost_ghz": 5.5,
+      "threads": 20,
+      "tdp_w": 125
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/12/1137.2.png"],
     "stock": 17
@@ -5410,8 +5935,10 @@
     "specs": {
       "socket": "LGA1851",
       "cores": 14,
-      "base_ghz": 1.9,
-      "boost_ghz": 5.2
+      "base_ghz": 4.2,
+      "boost_ghz": 5.2,
+      "threads": 14,
+      "tdp_w": 125
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/12/1135.1.png",
@@ -5433,8 +5960,10 @@
     "specs": {
       "socket": "LGA1851",
       "cores": 24,
-      "base_ghz": 1.9,
-      "boost_ghz": 5.6
+      "base_ghz": 2.5,
+      "boost_ghz": 5.6,
+      "threads": 24,
+      "tdp_w": 65
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/03/1139.png"],
     "stock": 20
@@ -5453,8 +5982,10 @@
     "specs": {
       "socket": "LGA1851",
       "cores": 14,
-      "base_ghz": 3.6,
-      "boost_ghz": 5.2
+      "base_ghz": 4.2,
+      "boost_ghz": 5.2,
+      "threads": 14,
+      "tdp_w": 125
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/03/1140.png"],
     "stock": 24
@@ -5475,7 +6006,8 @@
       "cores": 16,
       "threads": 32,
       "base_ghz": 4.3,
-      "boost_ghz": 5.7
+      "boost_ghz": 5.7,
+      "tdp_w": 170
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/09/2098.png"],
     "stock": 0
@@ -5494,8 +6026,10 @@
     "specs": {
       "socket": "LGA1851",
       "cores": 20,
-      "base_ghz": 1.8,
-      "boost_ghz": 5.5
+      "base_ghz": 2.4,
+      "boost_ghz": 5.3,
+      "threads": 20,
+      "tdp_w": 65
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/03/1142.1.png",
@@ -5517,7 +6051,10 @@
     "specs": {
       "socket": "AM5",
       "cores": 12,
-      "base_ghz": 5.5
+      "base_ghz": 4.4,
+      "threads": 24,
+      "tdp_w": 120,
+      "boost_ghz": 5.5
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/04/2103.png"],
     "stock": 12
@@ -5538,7 +6075,8 @@
       "cores": 8,
       "threads": 16,
       "base_ghz": 4.7,
-      "boost_ghz": 5.6
+      "boost_ghz": 5.6,
+      "tdp_w": 120
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/05/2107.png",
@@ -5561,7 +6099,9 @@
       "socket": "LGA1851",
       "cores": 14,
       "base_ghz": 3.4,
-      "boost_ghz": 5
+      "boost_ghz": 5,
+      "threads": 14,
+      "tdp_w": 65
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/08/1143_1.jpg",
@@ -5583,7 +6123,9 @@
     "specs": {
       "storage_gb": 256,
       "storage_type": "SSD",
-      "form_factor": "2.5 inch"
+      "form_factor": "2.5 inch",
+      "read_mb_s": 500,
+      "write_mb_s": 400
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2021/04/12121.1.png",
@@ -5604,8 +6146,10 @@
     "status": "ACTIVE",
     "specs": {
       "storage_gb": 480,
-      "storage_type": "HDD",
-      "form_factor": "2.5 inch"
+      "storage_type": "SSD",
+      "form_factor": "2.5 inch",
+      "read_mb_s": 500,
+      "write_mb_s": 450
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2020/09/12031.png"],
     "stock": 10
@@ -5624,7 +6168,9 @@
     "specs": {
       "storage_gb": 500,
       "storage_type": "SSD",
-      "form_factor": "2.5 inch"
+      "form_factor": "2.5 inch",
+      "read_mb_s": 540,
+      "write_mb_s": 500
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2023/07/12132.png"],
     "stock": 25
@@ -5643,7 +6189,9 @@
     "specs": {
       "storage_gb": 512,
       "storage_type": "SSD",
-      "form_factor": "2.5 inch"
+      "form_factor": "2.5 inch",
+      "read_mb_s": 550,
+      "write_mb_s": 500
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2023/07/12135.png"],
     "stock": 10
@@ -5681,7 +6229,7 @@
     "priceAmount": 35969,
     "status": "ACTIVE",
     "specs": {
-      "storage_gb": 1,
+      "storage_gb": 1024,
       "storage_type": "NVME",
       "form_factor": "M.2 2280",
       "read_mb_s": 7450,
@@ -5705,7 +6253,8 @@
       "storage_type": "NVME",
       "form_factor": "M.2 2280",
       "read_mb_s": 7450,
-      "write_mb_s": 6900
+      "write_mb_s": 6900,
+      "storage_gb": 2048
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2024/01/13199.png"],
     "stock": 18
@@ -5725,7 +6274,8 @@
       "storage_type": "NVME",
       "form_factor": "M.2 2280",
       "read_mb_s": 7450,
-      "write_mb_s": 6900
+      "write_mb_s": 6900,
+      "storage_gb": 2048
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2024/05/13189.png",
@@ -5851,8 +6401,10 @@
     "status": "ACTIVE",
     "specs": {
       "storage_gb": 2048,
-      "storage_type": "HDD",
-      "form_factor": "2.5 inch"
+      "storage_type": "NVME",
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7250,
+      "write_mb_s": 6300
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/05/13237.3.png",
@@ -5874,8 +6426,10 @@
     "status": "ACTIVE",
     "specs": {
       "storage_gb": 1024,
-      "storage_type": "HDD",
-      "form_factor": "2.5 inch"
+      "storage_type": "NVME",
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7150,
+      "write_mb_s": 6300
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/05/13236.4.png",
@@ -5898,7 +6452,9 @@
     "specs": {
       "storage_gb": 4096,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7250,
+      "write_mb_s": 6300
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/05/13238.1.png",
@@ -5921,7 +6477,7 @@
     "specs": {
       "storage_gb": 6144,
       "storage_type": "HDD",
-      "form_factor": "2.5 inch"
+      "form_factor": "3.5 inch"
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/07/7079.1-1.png"],
     "stock": 17
@@ -5940,7 +6496,7 @@
     "specs": {
       "storage_gb": 4096,
       "storage_type": "HDD",
-      "form_factor": "2.5 inch"
+      "form_factor": "3.5 inch"
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/07/7078.1.png"],
     "stock": 16
@@ -5959,7 +6515,9 @@
     "specs": {
       "storage_gb": 4096,
       "storage_type": "SSD",
-      "form_factor": "2.5 inch"
+      "form_factor": "2.5 inch",
+      "read_mb_s": 4000,
+      "write_mb_s": 3600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/08/9070.1.png",
@@ -5982,7 +6540,9 @@
     "specs": {
       "storage_gb": 2048,
       "storage_type": "SSD",
-      "form_factor": "2.5 inch"
+      "form_factor": "2.5 inch",
+      "read_mb_s": 4000,
+      "write_mb_s": 3600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/08/9069.2.png",
@@ -6026,7 +6586,9 @@
     "specs": {
       "storage_gb": 1024,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 14700,
+      "write_mb_s": 13400
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/10/13252.1.jpg"],
     "stock": 23
@@ -6045,7 +6607,9 @@
     "specs": {
       "storage_gb": 2048,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7400,
+      "write_mb_s": 7000
     },
     "images": ["https://speedlogic.com.co/wp-content/uploads/2025/10/1353.1.jpg"],
     "stock": 24
@@ -6064,7 +6628,9 @@
     "specs": {
       "storage_gb": 2048,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 14800,
+      "write_mb_s": 13400
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/10/13254.2.jpg",
@@ -6087,7 +6653,9 @@
     "specs": {
       "storage_gb": 2048,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7300,
+      "write_mb_s": 6600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2025/10/13213.2.jpg",
@@ -6109,7 +6677,9 @@
     "specs": {
       "storage_gb": 2048,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7300,
+      "write_mb_s": 6600
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/06/13261_1.jpg",
@@ -6132,7 +6702,9 @@
     "specs": {
       "storage_gb": 1024,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 7450,
+      "write_mb_s": 6900
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/07/13190.jpg",
@@ -6155,7 +6727,9 @@
     "specs": {
       "storage_gb": 480,
       "storage_type": "NVME",
-      "form_factor": "M.2 2280"
+      "form_factor": "M.2 2280",
+      "read_mb_s": 5000,
+      "write_mb_s": 4500
     },
     "images": [
       "https://speedlogic.com.co/wp-content/uploads/2026/08/13258_5.jpg",
