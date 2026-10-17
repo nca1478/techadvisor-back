@@ -348,5 +348,24 @@ describe('Reviews (e2e)', () => {
       expect(typeof entry.productName).toBe('string');
       expect(entry.productName.length).toBeGreaterThan(0);
     }
+
+    // Product-name search: only product B matches, plus a no-match probe.
+    const byProduct = await request(fixture.app.getHttpServer())
+      .get(`/api/v1/admin/reviews?q=${encodeURIComponent(`fixture b ${fixture.suffix}`)}`)
+      .set('Authorization', `Bearer ${fixture.adminToken}`)
+      .expect(200);
+    const byProductBody = byProduct.body as {
+      total: number;
+      data: { productId: string; productName: string }[];
+    };
+    expect(byProductBody.total).toBeGreaterThanOrEqual(1);
+    for (const entry of byProductBody.data) {
+      expect(entry.productId).toBe(fixture.productBId);
+    }
+    const noMatch = await request(fixture.app.getHttpServer())
+      .get('/api/v1/admin/reviews?q=no-such-product-xyz')
+      .set('Authorization', `Bearer ${fixture.adminToken}`)
+      .expect(200);
+    expect((noMatch.body as { total: number }).total).toBe(0);
   });
 });

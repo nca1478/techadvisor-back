@@ -23,6 +23,8 @@ export const adminReviewListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(['PENDING', 'PUBLISHED', 'REJECTED']).optional(),
   productId: uuidSchema.optional(),
+  /** Product-name search (same rule as the other admin `q` filters). */
+  q: z.string().trim().min(1).max(100).optional(),
 });
 
 export type AdminReviewListQuery = z.infer<typeof adminReviewListQuerySchema>;

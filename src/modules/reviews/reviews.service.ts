@@ -145,12 +145,19 @@ export class ReviewsService {
   }
 
   async listForAdmin(query: AdminReviewListQuery): Promise<AdminReviewListDto> {
-    const where: { status?: 'PENDING' | 'PUBLISHED' | 'REJECTED'; productId?: string } = {};
+    const where: {
+      status?: 'PENDING' | 'PUBLISHED' | 'REJECTED';
+      productId?: string;
+      product?: { name: { contains: string; mode: 'insensitive' } };
+    } = {};
     if (query.status !== undefined) {
       where.status = query.status;
     }
     if (query.productId !== undefined) {
       where.productId = query.productId;
+    }
+    if (query.q !== undefined) {
+      where.product = { name: { contains: query.q, mode: 'insensitive' } };
     }
     const skip = (query.page - 1) * query.limit;
     const [total, rows] = await this.prisma.$transaction([
