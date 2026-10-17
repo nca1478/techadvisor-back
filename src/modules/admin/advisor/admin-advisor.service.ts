@@ -127,6 +127,7 @@ export class AdminAdvisorService {
         count: group.count,
         latestAt: group.latestAt,
         ids: group.items.map((item) => item.id),
+        statuses: distinctStatuses(group.items),
       })),
       page: query.page,
       limit: query.limit,
@@ -309,4 +310,18 @@ function toFeedbackDto(row: FeedbackRow): AdminAdvisorFeedbackDto {
     answerLength: row.answer.length,
     createdAt: row.createdAt,
   };
+}
+
+/**
+ * Distinct triage statuses inside one frequency bucket, sorted forward
+ * (NEW -> IN_REVIEW -> RESOLVED). Unknown statuses sort last and are kept
+ * so the panel never hides a bucket it cannot triage.
+ */
+function distinctStatuses(items: Array<{ status: string }>): string[] {
+  const seen = new Set<string>();
+  for (const item of items) {
+    seen.add(item.status);
+  }
+  const rank = (status: string): number => STATUS_RANK[status] ?? 99;
+  return [...seen].sort((left, right) => rank(left) - rank(right));
 }

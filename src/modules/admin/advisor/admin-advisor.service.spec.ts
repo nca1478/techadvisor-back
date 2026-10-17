@@ -78,6 +78,19 @@ describe('AdminAdvisorService (unit, mocked database)', () => {
     expect(result.data[0]?.ids).toEqual(['a', 'b']);
   });
 
+  it('exposes distinct bucket statuses so the panel hides backward moves', async () => {
+    unansweredQuery.findMany.mockResolvedValue([
+      row({ id: 'a', query: 'Celulares', status: 'RESOLVED' }),
+      row({ id: 'b', query: 'celulares', status: 'NEW' }),
+      row({ id: 'c', query: 'Audifonos', status: 'RESOLVED' }),
+    ]);
+    const result = await service.unansweredGroups({ scanLimit: 500, page: 1, limit: 20 });
+    const mixed = result.data.find((group) => group.key === 'celulares');
+    expect(mixed?.statuses).toEqual(['NEW', 'RESOLVED']);
+    const resolved = result.data.find((group) => group.key === 'audifonos');
+    expect(resolved?.statuses).toEqual(['RESOLVED']);
+  });
+
   it('moves triage forward, no-ops same-state, and rejects backward and unknown rows', async () => {
     unansweredQuery.findUnique.mockResolvedValue(row({ status: 'NEW' }));
     unansweredQuery.update.mockImplementation(({ data }: { data: { status: string } }) =>

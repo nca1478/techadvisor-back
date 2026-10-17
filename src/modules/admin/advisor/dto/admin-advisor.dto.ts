@@ -67,6 +67,16 @@ export class AdminUnansweredGroupDto {
     type: [String],
   })
   ids!: string[];
+
+  @ApiProperty({
+    example: ['NEW'],
+    enum: ['NEW', 'IN_REVIEW', 'RESOLVED'],
+    isArray: true,
+    description:
+      'Distinct triage statuses in this bucket (sorted NEW → IN_REVIEW → RESOLVED). ' +
+      'Lets the panel hide actions that would move backward (see ADR 0060).',
+  })
+  statuses!: string[];
 }
 
 export class AdminUnansweredGroupListDto {
