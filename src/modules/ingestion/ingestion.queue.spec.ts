@@ -31,10 +31,25 @@ describe('ingestion queue helpers', () => {
     expect(parseRedisConnection('redis://cache.internal:6380/2')).toEqual({
       host: 'cache.internal',
       port: 6380,
+      db: 2,
     });
   });
 
+  it('parses rediss:// Upstash URLs with auth and TLS', () => {
+    expect(parseRedisConnection('rediss://default:secret@meet-orca-68958.upstash.io:6379')).toEqual(
+      {
+        host: 'meet-orca-68958.upstash.io',
+        port: 6379,
+        username: 'default',
+        password: 'secret',
+        tls: {},
+      },
+    );
+  });
+
   it('rejects non-redis schemes', () => {
-    expect(() => parseRedisConnection('postgres://localhost/db')).toThrow(/redis:\/\//);
+    expect(() => parseRedisConnection('postgres://localhost/db')).toThrow(
+      /redis:\/\/ or rediss:\/\//,
+    );
   });
 });

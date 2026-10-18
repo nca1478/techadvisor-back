@@ -5,13 +5,45 @@ import { INGESTION_QUEUE_NAME, type IngestionJobData } from './ingestion.constan
 /** Narrow type of the BullMQ queue owned by `IngestionModule` (only `add` is used). */
 export type IngestionQueue = Pick<Queue<IngestionJobData>, 'add'>;
 
+/** BullMQ/ioredis connection options derived from `REDIS_URL`. */
+export interface RedisConnectionOptions {
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  db?: number;
+  tls?: Record<string, unknown>;
+}
+
 /** Parses `REDIS_URL` (validated as a URL by the env schema) for BullMQ. */
-export function parseRedisConnection(redisUrl: string): { host: string; port: number } {
+export function parseRedisConnection(redisUrl: string): RedisConnectionOptions {
   const parsed = new URL(redisUrl);
-  if (parsed.protocol !== 'redis:') {
-    throw new Error(`REDIS_URL must use the redis:// scheme, got "${parsed.protocol}"`);
+  if (parsed.protocol !== 'redis:' && parsed.protocol !== 'rediss:') {
+    throw new Error(
+      `REDIS_URL must use the redis:// or rediss:// scheme, got "${parsed.protocol}"`,
+    );
   }
-  return { host: parsed.hostname || 'localhost', port: Number(parsed.port) || 6379 };
+  const connection: RedisConnectionOptions = {
+    host: parsed.hostname || 'localhost',
+    port: Number(parsed.port) || 6379,
+  };
+  if (parsed.username) {
+    connection.username = decodeURIComponent(parsed.username);
+  }
+  if (parsed.password) {
+    connection.password = decodeURIComponent(parsed.password);
+  }
+  const db = parsed.pathname.replace('/', '');
+  if (db !== '') {
+    const dbIndex = Number(db);
+    if (Number.isInteger(dbIndex) && dbIndex >= 0) {
+      connection.db = dbIndex;
+    }
+  }
+  if (parsed.protocol === 'rediss:') {
+    connection.tls = {};
+  }
+  return connection;
 }
 
 /**

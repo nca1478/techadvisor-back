@@ -4,7 +4,7 @@ import { APP_CONFIG } from '../../config/app-config.module.js';
 import type { AppConfig } from '../../config/env.schema.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { INGESTION_QUEUE_NAME } from '../ingestion/ingestion.constants.js';
-import { parseRedisConnection } from '../ingestion/ingestion.queue.js';
+import { parseRedisConnection, type RedisConnectionOptions } from '../ingestion/ingestion.queue.js';
 import { REINDEX_QUEUE_NAME } from '../reindex/reindex.constants.js';
 
 export interface AiCallStatRow {
@@ -85,7 +85,7 @@ export class ObservabilityService {
    * stays available during an outage.
    */
   async queueStats(): Promise<QueueStats> {
-    let connection: { host: string; port: number };
+    let connection: RedisConnectionOptions;
     try {
       connection = parseRedisConnection(this.config.REDIS_URL);
     } catch (error) {
