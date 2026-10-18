@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "0.0.1",
-  "description": "",
+  "description": "API NestJS para el ecommerce B2C de tecnología TechAdvisor con asesor de compras RAG. Escucha en el puerto **3001** con prefijo global **`/api/v1`**.",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
@@ -24,6 +24,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "start:free": "node dist/run-free.js",
     "worker:ingestion": "node dist/modules/ingestion/ingestion.worker.js",
     "worker:reindex": "node dist/modules/reindex/reindex.worker.js",
     "typecheck": "tsc --noEmit",
@@ -82,5 +83,19 @@
     "typescript-eslint": "^8.71.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.1.2"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nca1478/techadvisor-back.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/nca1478/techadvisor-back/issues"
+  },
+  "homepage": "https://github.com/nca1478/techadvisor-back#readme"
 }
