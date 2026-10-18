@@ -137,6 +137,18 @@ export class AdminAdvisorService {
   }
 
   /**
+   * Full abstention row (admin-only detail): raw question, reason and the
+   * owning session for the minimized conversation link. Unknown ids 404.
+   */
+  async getUnansweredDetail(id: string) {
+    const row = await this.prisma.unansweredQuery.findUnique({ where: { id } });
+    if (row === null) {
+      throw new NotFoundException({ message: 'Unanswered query not found' });
+    }
+    return toUnansweredDto(row);
+  }
+
+  /**
    * Forward-only triage transition (`NEW` → `IN_REVIEW` → `RESOLVED`).
    * Same-state moves are a no-op returning the current row: frequency
    * buckets mix statuses, so a bucket action legitimately re-targets rows

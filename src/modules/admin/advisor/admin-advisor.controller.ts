@@ -62,6 +62,13 @@ export class AdminAdvisorController {
     return this.advisor.unansweredGroups(query);
   }
 
+  @Get('unanswered/:id')
+  @ApiOperation({ summary: 'Full abstention row (admin-only, e.g. to draft a corpus document)' })
+  @ApiOkResponse({ type: AdminUnansweredQueryDto })
+  getUnanswered(@Param(new ZodValidationPipe(uuidParamsSchema)) params: UuidParams) {
+    return this.advisor.getUnansweredDetail(params.id);
+  }
+
   @Patch('unanswered/:id')
   @ApiOperation({
     summary:

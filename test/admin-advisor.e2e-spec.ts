@@ -190,6 +190,22 @@ describe('Admin advisor panel (e2e)', () => {
     expect(bucket?.ids).toHaveLength(2);
   });
 
+  it('exposes the full abstention row on detail and 404s unknown ids', async () => {
+    const server = app.getHttpServer();
+    const id = unansweredIds[0] ?? '';
+    const detail = await request(server)
+      .get(`/api/v1/admin/advisor/unanswered/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const body = detail.body as { id: string; query: string; sessionId: string | null };
+    expect(body.id).toBe(id);
+    expect(body.query).toContain(marker);
+    await request(server)
+      .get('/api/v1/admin/advisor/unanswered/00000000-0000-4000-8000-000000000000')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+  });
+
   it('moves an abstention forward to RESOLVED and rejects reopening', async () => {
     const server = app.getHttpServer();
     const id = unansweredIds[0] ?? '';

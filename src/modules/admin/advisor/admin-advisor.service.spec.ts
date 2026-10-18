@@ -91,6 +91,21 @@ describe('AdminAdvisorService (unit, mocked database)', () => {
     expect(resolved?.statuses).toEqual(['RESOLVED']);
   });
 
+  it('returns the full abstention row and 404s unknown ids', async () => {
+    unansweredQuery.findUnique.mockResolvedValue(
+      row({ id: 'u1', sessionId: 'session-1', reason: 'no_evidence' }),
+    );
+    const detail = await service.getUnansweredDetail('u1');
+    expect(detail).toMatchObject({
+      id: 'u1',
+      query: '¿Cuánto dura la batería?',
+      sessionId: 'session-1',
+      reason: 'no_evidence',
+    });
+    unansweredQuery.findUnique.mockResolvedValue(null);
+    await expect(service.getUnansweredDetail('missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('moves triage forward, no-ops same-state, and rejects backward and unknown rows', async () => {
     unansweredQuery.findUnique.mockResolvedValue(row({ status: 'NEW' }));
     unansweredQuery.update.mockImplementation(({ data }: { data: { status: string } }) =>
