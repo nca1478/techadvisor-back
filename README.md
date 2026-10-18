@@ -9,7 +9,7 @@ Estado: ecommerce completo (auth, catálogo i18n, inventario, carrito,
 órdenes, pagos Stripe test, panel admin) + RAG completo (ingesta,
 búsqueda híbrida, product-QA, asesor conversacional, comparador,
 soporte posventa, reseñas con resumen) + evaluación y observabilidad
-(Fases 0–7). Decisiones en `docs/decisions/` (51 ADRs).
+(Fases 0–7). Decisiones en `docs/decisions/` (64 ADRs).
 
 ## Ejecución
 
@@ -47,7 +47,7 @@ npm run db:generate    # regenera el cliente (también corre en `npm ci` vía `p
 npm run db:migrate     # aplica migraciones pendientes (crea la BD si falta)
 ```
 
-Migraciones siempre aditivas (26 migraciones: auth, catálogo, inventario,
+Migraciones siempre aditivas (28 migraciones: auth, catálogo, inventario,
 carrito, órdenes, pagos, corpus RAG, sesiones del asesor, reseñas,
 observabilidad). Ver `prisma/migrations/`.
 
