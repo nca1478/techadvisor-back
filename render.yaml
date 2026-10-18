@@ -1,0 +1,81 @@
+# Render Blueprint — TechAdvisor backend (API + ingestion worker).
+# Postgres (Supabase) y Redis externo se administran fuera de Render:
+# sus URLs y secretos se cargan en el Dashboard (sync: false), nunca aquí.
+services:
+  - type: web
+    name: techadvisor-back
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: "npm ci && npx prisma generate && npm run build"
+    startCommand: "npm run start:prod"
+    preDeployCommand: "npx prisma migrate deploy"
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    numInstances: 1
+    disk:
+      name: techadvisor-documents
+      mountPath: /opt/render/project/src/storage/documents
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: BASE_CURRENCY
+        value: USD
+      - key: SUPPORTED_CURRENCIES
+        value: USD
+      - key: DEFAULT_LOCALE
+        value: en
+      - key: SUPPORTED_LOCALES
+        value: en,es
+      - key: DOCS_ENABLED
+        value: false
+      - key: EMBEDDING_PROVIDER
+        value: fake
+      - key: LLM_PROVIDER
+        value: fake
+
+  - type: worker
+    name: techadvisor-worker-ingestion
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: "npm ci && npx prisma generate && npm run build"
+    startCommand: "npm run worker:ingestion"
+    autoDeploy: true
+    numInstances: 1
+    disk:
+      name: techadvisor-worker-documents
+      mountPath: /opt/render/project/src/storage/documents
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: BASE_CURRENCY
+        value: USD
+      - key: SUPPORTED_CURRENCIES
+        value: USD
+      - key: DEFAULT_LOCALE
+        value: en
+      - key: SUPPORTED_LOCALES
+        value: en,es
+      - key: DOCS_ENABLED
+        value: false
+      - key: EMBEDDING_PROVIDER
+        value: fake
+      - key: LLM_PROVIDER
+        value: fake
