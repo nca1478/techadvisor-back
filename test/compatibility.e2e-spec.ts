@@ -225,6 +225,64 @@ describe('Compatibility check endpoint (e2e)', () => {
       .post('/api/v1/compatibility/check')
       .send({ productIds: ['not-a-uuid'] })
       .expect(400);
+    await request(app.getHttpServer()).post('/api/v1/compatibility/check').send({}).expect(400);
+    await request(app.getHttpServer())
+      .post('/api/v1/compatibility/check')
+      .send({
+        items: [
+          { productId: cpuAm5Id, qty: 1 },
+          { productId: cpuAm5Id, qty: 2 },
+        ],
+      })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/v1/compatibility/check')
+      .send({ items: [{ productId: cpuAm5Id, qty: 0 }] })
+      .expect(400);
+  });
+
+  it('counts cart quantities: 1x NVMe on a 3-slot board passes, 4x fails', async () => {
+    const ok = await request(app.getHttpServer())
+      .post('/api/v1/compatibility/check')
+      .send({
+        items: [
+          { productId: boardAm5Id, qty: 1 },
+          { productId: nvmeId, qty: 1 },
+        ],
+      })
+      .expect(200);
+    expect((ok.body as { compatible: boolean }).compatible).toBe(true);
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/compatibility/check')
+      .send({
+        items: [
+          { productId: boardAm5Id, qty: 1 },
+          { productId: nvmeId, qty: 4 },
+        ],
+      })
+      .expect(200);
+    const body = res.body as {
+      compatible: boolean;
+      issues: { rule: string; severity: string; productIds: string[] }[];
+    };
+    expect(body.compatible).toBe(false);
+    const storage = body.issues.filter((issue) => issue.rule === 'storage-interface');
+    expect(storage).toHaveLength(1);
+    expect(storage[0]?.severity).toBe('error');
+    // Expanded qty dedupes ids for stable display.
+    expect(storage[0]?.productIds).toEqual(expect.arrayContaining([nvmeId, boardAm5Id]));
+    expect(new Set(storage[0]?.productIds ?? []).size).toBe(storage[0]?.productIds.length);
+  });
+
+  it('counts duplicated boards by qty (2x same board is a single-board error)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/compatibility/check')
+      .send({ items: [{ productId: boardAm5Id, qty: 2 }] })
+      .expect(200);
+    const body = res.body as { compatible: boolean; issues: { rule: string }[] };
+    expect(body.compatible).toBe(false);
+    expect(body.issues.some((issue) => issue.rule === 'build-single-board')).toBe(true);
   });
 
   it('returns 404 for unknown product ids', async () => {

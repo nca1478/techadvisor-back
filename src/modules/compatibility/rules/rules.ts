@@ -79,7 +79,7 @@ function makeIssue(
   return {
     rule,
     severity,
-    productIds: [...productIds],
+    productIds: [...new Set(productIds)],
     messageKey,
     message: renderCompatibilityMessage(messageKey, locale, params),
   };

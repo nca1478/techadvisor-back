@@ -32,12 +32,33 @@ export class CompatibilityIssueDto {
   message!: string;
 }
 
-export class CompatibilityCheckRequestDto {
+/** One line of a quantity-aware compatibility check (mirrors a cart line). */
+export class CompatibilityCheckItemDto {
   @ApiProperty({
-    example: ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
-    description: 'Product ids to check together (1..20 unique UUIDs).',
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    description: 'Product id (UUID).',
   })
-  productIds!: string[];
+  productId!: string;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Units of this product in the build (1..999).',
+  })
+  qty!: number;
+}
+
+export class CompatibilityCheckRequestDto {
+  @ApiPropertyOptional({
+    example: ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+    description: 'Legacy product ids (each counts as qty 1). Prefer `items`.',
+  })
+  productIds?: string[];
+
+  @ApiPropertyOptional({
+    type: [CompatibilityCheckItemDto],
+    description: 'Quantity-aware items: one entry per distinct product with its cart qty.',
+  })
+  items?: CompatibilityCheckItemDto[];
 
   @ApiPropertyOptional({
     example: 'es',
