@@ -52,17 +52,6 @@ import {
 } from './dto/chat-sessions.dto.js';
 import { RecommendRequestDto, RecommendResponseDto } from './dto/recommend.dto.js';
 
-/**
- * Chat-session history (see ADR 0029).
- *
- * Sessions belong either to the Bearer-authenticated user or to the anonymous
- * guest identified by the signed httpOnly `sid` cookie (same scheme as carts,
- * ADR 0010; a fresh cookie is issued on first use). Every session-scoped
- * route re-checks ownership in the service: unknown ids and ids owned by
- * another user 404 identically, so a session is never accessible by another
- * user. `GET /` lists only the caller's own authenticated sessions;
- * anonymous history is reachable solely through its own cookie.
- */
 @ApiTags('advisor')
 @Controller('advisor/sessions')
 @UseGuards(ThrottlerGuard, OptionalJwtAuthGuard)
