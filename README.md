@@ -109,7 +109,7 @@ ver ADR `0004`).
 | Carrito | invitado y autenticado, merge al iniciar sesión (`/cart/*`) |
 | Órdenes | creación, listado, máquina de estados + expiración (`/orders/*`) |
 | Pagos | `POST /payments/checkout`, `POST /payments/webhook` (firma verificada, idempotente) |
-| Búsqueda | `GET /search?q=` (semántica híbrida + fallback léxico, rate limit) |
+| Búsqueda | `GET /search` (`q` opcional: vacía explora por categoría/precio solo-SQL; con texto, semántica híbrida + fallback léxico, rate limit) |
 | Asesor | `POST /advisor/product-qa`, `POST /advisor/compare`, `POST /advisor/support`, `POST /advisor/feedback`, sesiones `GET+POST /advisor/sessions`, `GET+POST+DELETE /advisor/sessions/:id(+/messages)` |
 | Compatibilidad | `POST /compatibility/check` (reglas deterministas sobre `specs`) |
 | Reseñas | `POST /reviews`, `GET /reviews/product/:id(+/summary)`; moderación en admin |

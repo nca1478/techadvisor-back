@@ -31,8 +31,14 @@ export class SearchController {
   constructor(private readonly search: SearchService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Natural-language product search over the RAG corpus' })
-  @ApiQuery({ name: 'q', required: true, description: 'Natural-language query (1..200 chars).' })
+  @ApiOperation({
+    summary: 'Product search: natural-language over the RAG corpus, or filter-only browse',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    description: 'Natural-language query (0..200 chars). Empty browses by filters.',
+  })
   @ApiQuery({ name: 'category', required: false, description: 'Category slug filter.' })
   @ApiQuery({
     name: 'maxPrice',

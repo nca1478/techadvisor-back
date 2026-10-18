@@ -217,6 +217,21 @@ describe('SearchService (unit, mocked retrieval and database)', () => {
     expect(response.results[0]?.product).toMatchObject({ priceAmount: 80_00, currency: 'EUR' });
   });
 
+  it('browses by filters without q and never calls retrieval', async () => {
+    const { service, searchMock } = buildService({
+      rows: [productRow('p1', { priceAmount: 100_00 }), productRow('p2', { priceAmount: 50_00 })],
+    });
+
+    const response = await service.search({ q: '', maxPrice: 60_00, limit: 12 });
+
+    expect(searchMock).not.toHaveBeenCalled();
+    expect(response.query).toBe('');
+    expect(response.degraded).toBe(false);
+    expect(response.results.map((result) => result.product.id)).toEqual(['p2']);
+    expect(response.results[0]).toMatchObject({ score: 0 });
+    expect(typeof response.results[0]?.snippet).toBe('string');
+  });
+
   it('returns empty when neither retrieval nor the catalog match', async () => {
     const { service } = buildService({ hits: [], rows: [] });
 

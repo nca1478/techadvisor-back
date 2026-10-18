@@ -8,17 +8,21 @@ const CURRENCY_PATTERN = /^[A-Z]{3}$/;
  * Express, so numbers are coerced; failures yield 400 via
  * `ZodValidationPipe`.
  *
- * `q` is capped at 200 characters — shorter than the 1000 accepted by
- * `RetrievalService`: search boxes send short natural-language queries, and
- * the cap bounds embedding cost and full-text work per request (ADR 0022).
+ * `q` is optional and capped at 200 characters — shorter than the 1000
+ * accepted by `RetrievalService`: search boxes send short natural-language
+ * queries, and the cap bounds embedding cost and full-text work per request
+ * (ADR 0022). An empty/missing `q` browses the catalog by the remaining
+ * filters only (category/maxPrice, SQL-only, see ADR 0064): every field is
+ * exclusive, any of them may be empty.
  * Price bounds are minor-unit integers in the *requested* currency (ADR 0007).
  */
 export const searchQuerySchema = z.object({
   q: z
-    .string({ error: 'q is required' })
+    .string({ error: 'q must be a string' })
     .trim()
-    .min(1, { error: 'q must not be empty' })
-    .max(200, { error: 'q must be at most 200 characters long' }),
+    .max(200, { error: 'q must be at most 200 characters long' })
+    .optional()
+    .default(''),
   category: z.string().trim().min(1).max(100).optional(),
   maxPrice: z.coerce.number().int().min(0).max(999_999_999).optional(),
   currency: z

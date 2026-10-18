@@ -17,6 +17,8 @@ import type { SearchResponseDto, SearchResultDto } from './dto/search.dto.js';
 const RETRIEVAL_TOP_N = 30;
 /** Evidence fragment length: enough context for a card, bounded for the payload. */
 const SNIPPET_MAX_LENGTH = 280;
+/** Candidates scanned in filter-only browse before the limit is applied. */
+const BROWSE_CANDIDATE_TAKE = 200;
 /**
  * Base score for SQL lexical matches (name/brand/SKU/description). It sits
  * far above any RRF score (consensus of both branches is ~0.03), so exact
@@ -68,6 +70,13 @@ export class SearchService {
       this.config.SUPPORTED_LOCALES,
       this.config.DEFAULT_LOCALE,
     );
+
+    // No text query: browse ACTIVE products by the remaining filters only
+    // (SQL, no retrieval/embeddings). Every field is exclusive — any of them
+    // may be empty (see ADR 0064).
+    if (query.q === '') {
+      return this.browse(query, currency, locale);
+    }
 
     const { hits, degraded } = await this.retrieve(query.q, locale);
     const grouped = groupByProduct(hits);
@@ -175,6 +184,58 @@ export class SearchService {
     );
 
     return { query: query.q, degraded, locale, currency, results: results.slice(0, query.limit) };
+  }
+
+  /**
+   * Filter-only browse (empty `q`): ACTIVE products straight from SQL,
+   * optionally narrowed by category slug, then by resolved max price
+   * (base row or fixed override, ADR 0007). Deterministic name order, no
+   * retrieval and no embeddings. Score is 0 for every hit; the snippet
+   * falls back to the SQL description.
+   */
+  private async browse(
+    query: SearchQuery,
+    currency: string,
+    locale: string,
+  ): Promise<SearchResponseDto> {
+    const rows = await this.prisma.product.findMany({
+      where: {
+        status: 'ACTIVE',
+        ...(query.category !== undefined ? { category: { slug: query.category } } : {}),
+      },
+      include: this.productInclude(locale, currency),
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: BROWSE_CANDIDATE_TAKE,
+    });
+    const availability = await this.inventory.getAvailabilityMap(rows.map((row) => row.id));
+    const results: SearchResultDto[] = [];
+    for (const row of rows) {
+      const price = resolvePrice(
+        { amount: row.priceAmount, currency: row.currency },
+        row.prices,
+        currency,
+      );
+      if (query.maxPrice !== undefined && price.amount > query.maxPrice) {
+        continue;
+      }
+      results.push({
+        product: this.toListItem(
+          row,
+          locale,
+          currency,
+          toAvailability(availability.get(row.id) ?? 0),
+        ),
+        score: 0,
+        snippet: toSnippet(row.description.trim() === '' ? row.name : row.description),
+      });
+      if (results.length >= query.limit) {
+        break;
+      }
+    }
+    this.logger.debug(
+      `search: browse category=${query.category ?? '-'} results=${String(results.length)}`,
+    );
+    return { query: '', degraded: false, locale, currency, results };
   }
 
   /**

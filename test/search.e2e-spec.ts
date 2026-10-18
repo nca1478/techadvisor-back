@@ -278,8 +278,36 @@ describe('Search endpoint (e2e)', () => {
     expect(unknownCategory.results).toEqual([]);
   });
 
-  it('validates q and currency', async () => {
-    await request(app.getHttpServer()).get('/api/v1/search').expect(400);
+  it('browses by filters without q (every field is exclusive)', async () => {
+    const byCategory = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ category: `e2e-search-audio-${suffix}` })
+        .expect(200)
+    ).body as { query: string; results: { product: { id: string } }[] };
+    expect(byCategory.query).toBe('');
+    expect(byCategory.results.map((result) => result.product.id)).toContain(headphoneId);
+    expect(byCategory.results.map((result) => result.product.id)).not.toContain(keyboardId);
+
+    const byPrice = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ category: `e2e-search-audio-${suffix}`, maxPrice: 150_00 })
+        .expect(200)
+    ).body as { results: { product: { id: string } }[] };
+    expect(byPrice.results.map((result) => result.product.id)).toContain(headphoneId);
+    expect(byPrice.results.map((result) => result.product.id)).not.toContain(keyboardId);
+
+    const tooCheap = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ category: `e2e-search-audio-${suffix}`, maxPrice: 50_00 })
+        .expect(200)
+    ).body as { results: unknown[] };
+    expect(tooCheap.results).toEqual([]);
+  });
+
+  it('validates q length and currency', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/search')
       .query({ q: 'x'.repeat(201) })
