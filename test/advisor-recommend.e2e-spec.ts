@@ -376,6 +376,53 @@ describe('Advisor recommendations (e2e)', () => {
     expect(body.message).toBe(body.clarifyingQuestion);
   });
 
+  it('guides multi-category bundles one at a time across two turns (no unknown_category loop)', async () => {
+    const { agent, sessionId } = await createGuestSession();
+    const bundle =
+      'tarjeta madre, procesador, memoria, disco duro y fuente de poder, todo compatible';
+    const noCategoryIntent = (): string =>
+      intentJson({
+        categorySlug: undefined,
+        useCases: [],
+        missingInfo: ['budget', 'use', 'category'],
+      });
+    llm.enqueueTexts([noCategoryIntent(), noCategoryIntent()]);
+
+    const first = await agent
+      .post(`/api/v1/advisor/sessions/${sessionId}/messages`)
+      .send({ content: bundle, locale: 'es' })
+      .expect(200);
+    const firstBody = first.body as RecommendBody;
+    expect(firstBody.products).toEqual([]);
+    expect(firstBody.clarifyingQuestion).toBeUndefined();
+    expect(firstBody.message).toContain('una categoría a la vez');
+    expect(firstBody.message).not.toContain('no está en mi catálogo');
+
+    const second = await agent
+      .post(`/api/v1/advisor/sessions/${sessionId}/messages`)
+      .send({
+        content:
+          'si: un procesador, una placa base, una memoria ram, una tarjeta grafica, un almacenamiento y una fuente de poder',
+        locale: 'es',
+      })
+      .expect(200);
+    const secondBody = second.body as RecommendBody;
+    expect(secondBody.products).toEqual([]);
+    expect(secondBody.clarifyingQuestion).toBeUndefined();
+    expect(secondBody.message).toContain('una categoría a la vez');
+    expect(secondBody.message).not.toContain('no está en mi catálogo');
+
+    const history = await agent.get(`/api/v1/advisor/sessions/${sessionId}`).expect(200);
+    expect((history.body as { messages: unknown[] }).messages).toHaveLength(4);
+
+    const client = prisma as unknown as PrismaClient;
+    const rows = await client.unansweredQuery.findMany({ where: { sessionId } });
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toMatchObject({ productId: null, reason: 'multi_category' });
+    }
+  });
+
   it('explains which constraint to relax when nothing matches the budget', async () => {
     const { agent, sessionId } = await createGuestSession();
     llm.enqueueTexts([intentJson()]);
