@@ -175,6 +175,13 @@ export const adminProductStockFilterSchema = z.enum(['out_of_stock', 'low_stock'
 
 export type AdminProductStockFilter = z.output<typeof adminProductStockFilterSchema>;
 
+/** Query for `GET /admin/products/suggest-slug`: optional base name. */
+export const suggestSlugQuerySchema = z.object({
+  name: z.string().trim().max(200).optional(),
+});
+
+export type SuggestSlugQuery = z.output<typeof suggestSlugQuerySchema>;
+
 /** Query for `GET /admin/products`: every status is visible (no ACTIVE filter). */
 export const adminProductListQuerySchema = z.object({
   status: productStatusSchema.optional(),

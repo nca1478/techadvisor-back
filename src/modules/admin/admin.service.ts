@@ -13,6 +13,11 @@ import type { OrderStatus, Prisma } from '../../generated/prisma/client.js';
 import { Prisma as PrismaNamespace } from '../../generated/prisma/client.js';
 import type { ShippingAddressDto } from '../orders/dto/orders.dto.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import {
+  generateSkuCandidate,
+  generateSlugCandidate,
+  slugifyProductName,
+} from './product-identity.js';
 import { parseSpecs } from '../catalog/specs/index.js';
 import { ProductSpecSheetService } from '../ingestion/product-spec-sheet.service.js';
 import { OrderNotFoundException } from '../orders/orders.errors.js';
@@ -196,6 +201,43 @@ export class AdminService {
 
   async getProductById(id: string): Promise<AdminProductDto> {
     return this.toAdminProduct(await this.findProductOrThrow(id));
+  }
+
+  /**
+   * Returns a random SKU guaranteed free in `products` at call time (the
+   * `P2002` mapping on create/update stays the final guard against races).
+   */
+  async suggestSku(): Promise<{ sku: string }> {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const sku = generateSkuCandidate();
+      const existing = await this.prisma.product.findUnique({
+        where: { sku },
+        select: { id: true },
+      });
+      if (existing === null) return { sku };
+    }
+    throw new ConflictException({
+      message: 'Could not generate a unique SKU, try again',
+    });
+  }
+
+  /**
+   * Returns a slug derived from `name` (or `product` when empty) plus a
+   * random suffix, guaranteed free in `products` at call time.
+   */
+  async suggestSlug(name?: string): Promise<{ slug: string }> {
+    const base = slugifyProductName((name ?? '').trim() === '' ? 'product' : (name as string));
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const slug = generateSlugCandidate(base);
+      const existing = await this.prisma.product.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
+      if (existing === null) return { slug };
+    }
+    throw new ConflictException({
+      message: 'Could not generate a unique slug, try again',
+    });
   }
 
   async createProduct(input: CreateProductInput): Promise<AdminProductDto> {

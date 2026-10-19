@@ -36,6 +36,7 @@ import {
   createProductSchema,
   metricsOverviewQuerySchema,
   replaceProductImagesSchema,
+  suggestSlugQuerySchema,
   updateBrandSchema,
   updateCategorySchema,
   updateOrderStatusSchema,
@@ -51,6 +52,7 @@ import {
   type CreateProductInput,
   type MetricsOverviewQuery,
   type ReplaceProductImagesInput,
+  type SuggestSlugQuery,
   type UpdateBrandInput,
   type UpdateCategoryInput,
   type UpdateOrderStatusInput,
@@ -119,6 +121,22 @@ export class AdminController {
     @Body(new ZodValidationPipe(createProductSchema)) body: CreateProductInput,
   ): Promise<AdminProductDto> {
     return this.admin.createProduct(body);
+  }
+
+  @Get('products/suggest-sku')
+  @ApiOperation({ summary: 'Generate a unique random SKU (TA-XXXXXX) for the product form' })
+  @ApiOkResponse({ description: 'Unique SKU candidate.' })
+  suggestSku(): Promise<{ sku: string }> {
+    return this.admin.suggestSku();
+  }
+
+  @Get('products/suggest-slug')
+  @ApiOperation({ summary: 'Generate a unique slug from an optional product name' })
+  @ApiOkResponse({ description: 'Unique slug candidate.' })
+  suggestSlug(
+    @Query(new ZodValidationPipe(suggestSlugQuerySchema)) query: SuggestSlugQuery,
+  ): Promise<{ slug: string }> {
+    return this.admin.suggestSlug(query.name);
   }
 
   @Get('products/:id')
