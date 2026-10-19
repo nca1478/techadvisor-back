@@ -171,7 +171,13 @@ async function seedUsers(prisma: PrismaClient, data: SeedData): Promise<SeedRepo
     await prisma.user.upsert({
       where: { email: user.email },
       update: {},
-      create: { email: user.email, passwordHash, name: user.name, role: user.role },
+      create: {
+        email: user.email,
+        passwordHash,
+        name: user.name,
+        role: user.role,
+        provider: 'LOCAL',
+      },
     });
     report.users.created += 1;
   }

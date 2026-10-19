@@ -7,7 +7,8 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { UsersService, toSafeUser, type SafeUser } from '../users/users.service.js';
 import { PasswordService } from './password.service.js';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token.util.js';
-import type { LoginInput, RefreshInput, RegisterInput } from './auth.schemas.js';
+import { GoogleIdTokenVerifier } from './google-id-token.verifier.js';
+import type { GoogleLoginInput, LoginInput, RefreshInput, RegisterInput } from './auth.schemas.js';
 
 export interface TokenPair {
   accessToken: string;
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly googleVerifier: GoogleIdTokenVerifier,
   ) {}
 
   async register(input: RegisterInput): Promise<{ user: SafeUser; tokens: TokenPair }> {
@@ -49,12 +51,36 @@ export class AuthService {
     const candidate = await this.users.findByEmailWithHash(email);
     if (
       candidate === null ||
+      candidate.passwordHash === null ||
       !(await this.passwords.verify(candidate.passwordHash, input.password))
     ) {
       // Same message for unknown email and wrong password (no user enumeration).
       throw new UnauthorizedException('Invalid credentials');
     }
     const user = toSafeUser(candidate);
+    const tokens = await this.issueTokenPair(user.id, user.role);
+    return { user, tokens };
+  }
+
+  /**
+   * Google sign-in: verifies the credential (GIS ID token or OAuth2 access
+   * token from the popup flow), then finds-or-creates the user by verified
+   * email. New users are CUSTOMER/provider GOOGLE without a password;
+   * existing users (LOCAL or GOOGLE) sign in unchanged — their provider is
+   * never rewritten here. Never sends personal data to the LLM.
+   */
+  async loginWithGoogle(input: GoogleLoginInput): Promise<{ user: SafeUser; tokens: TokenPair }> {
+    const profile =
+      input.accessToken !== undefined
+        ? await this.googleVerifier.verifyAccessToken(input.accessToken)
+        : await this.googleVerifier.verify(input.idToken as string);
+    const email = normalizeEmail(profile.email);
+    const existing = await this.users.findByEmail(email);
+    if (existing !== null) {
+      const tokens = await this.issueTokenPair(existing.id, existing.role);
+      return { user: existing, tokens };
+    }
+    const user = await this.users.createGoogleUser({ email, name: profile.name });
     const tokens = await this.issueTokenPair(user.id, user.role);
     return { user, tokens };
   }

@@ -21,10 +21,17 @@ enum Role {
   ADMIN
 }
 
+/** How the user account was created / authenticates. */
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique
-  passwordHash String         @map("password_hash")
+  passwordHash String?        @map("password_hash")
+  provider     AuthProvider   @default(LOCAL)
   name         String?
   role         Role           @default(CUSTOMER)
   createdAt    DateTime       @default(now()) @map("created_at")

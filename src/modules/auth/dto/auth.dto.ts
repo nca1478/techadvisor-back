@@ -23,6 +23,21 @@ export class LoginRequestDto {
   password!: string;
 }
 
+export class GoogleLoginRequestDto {
+  @ApiProperty({
+    description: 'GIS ID token (JWT). One of idToken/accessToken is required.',
+    required: false,
+  })
+  idToken?: string;
+
+  @ApiProperty({
+    description:
+      'Google OAuth2 access token (popup flow, mobile-friendly). One of idToken/accessToken is required.',
+    required: false,
+  })
+  accessToken?: string;
+}
+
 export class RefreshRequestDto {
   @ApiProperty({ description: 'Opaque refresh token issued by login/refresh.' })
   refreshToken!: string;
@@ -54,6 +69,9 @@ export class UserResponseDto {
 
   @ApiProperty({ enum: ['CUSTOMER', 'ADMIN'], example: 'CUSTOMER' })
   role!: string;
+
+  @ApiProperty({ enum: ['LOCAL', 'GOOGLE'], example: 'LOCAL' })
+  provider!: string;
 
   @ApiProperty({ example: '2026-10-06T12:00:00.000Z' })
   createdAt!: Date;

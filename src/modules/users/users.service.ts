@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PasswordService } from '../auth/password.service.js';
-import type { Role } from '../../generated/prisma/client.js';
+import type { AuthProvider, Role } from '../../generated/prisma/client.js';
 
 /** Public user shape — never includes `passwordHash`. */
 export interface SafeUser {
@@ -9,6 +9,7 @@ export interface SafeUser {
   email: string;
   name: string | null;
   role: Role;
+  provider: AuthProvider;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +19,7 @@ export function toSafeUser(user: {
   email: string;
   name: string | null;
   role: Role;
+  provider: AuthProvider;
   createdAt: Date;
   updatedAt: Date;
 }): SafeUser {
@@ -26,6 +28,7 @@ export function toSafeUser(user: {
     email: user.email,
     name: user.name,
     role: user.role,
+    provider: user.provider,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -53,6 +56,24 @@ export class UsersService {
         passwordHash,
         name: input.name,
         role: 'CUSTOMER',
+        provider: 'LOCAL',
+      },
+    });
+    return toSafeUser(user);
+  }
+
+  /**
+   * Creates a CUSTOMER without a local password for Google sign-in
+   * (provider GOOGLE, passwordHash NULL). Role is always CUSTOMER.
+   */
+  async createGoogleUser(input: { email: string; name?: string | null }): Promise<SafeUser> {
+    const user = await this.prisma.user.create({
+      data: {
+        email: input.email,
+        passwordHash: null,
+        name: input.name ?? null,
+        role: 'CUSTOMER',
+        provider: 'GOOGLE',
       },
     });
     return toSafeUser(user);
@@ -96,9 +117,10 @@ export class UsersService {
     email: string;
     name: string | null;
     role: Role;
+    provider: AuthProvider;
     createdAt: Date;
     updatedAt: Date;
-    passwordHash: string;
+    passwordHash: string | null;
   } | null> {
     return this.prisma.user.findUnique({
       where: { email },
@@ -107,6 +129,7 @@ export class UsersService {
         email: true,
         name: true,
         role: true,
+        provider: true,
         createdAt: true,
         updatedAt: true,
         passwordHash: true,

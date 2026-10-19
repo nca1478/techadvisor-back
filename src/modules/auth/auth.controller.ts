@@ -12,9 +12,10 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto.js';
 import { ApiUniformErrorResponses } from '../../common/errors/api-error-responses.decorator.js';
 import { AuthService } from './auth.service.js';
-import { loginSchema, refreshSchema, registerSchema } from './auth.schemas.js';
+import { loginSchema, refreshSchema, registerSchema, googleLoginSchema } from './auth.schemas.js';
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 import {
+  GoogleLoginRequestDto,
   LoginRequestDto,
   LogoutResponseDto,
   RefreshRequestDto,
@@ -60,6 +61,22 @@ export class AuthController {
     tokens: TokenPairResponseDto;
   }> {
     return this.auth.login(body);
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log in or sign up with a Google ID token' })
+  @ApiOkResponse({
+    description:
+      'Authenticated. Verifies the GIS ID token, creates a CUSTOMER (provider GOOGLE) on first use, signs in existing users unchanged.',
+  })
+  @ApiUnauthorizedResponse({ type: ErrorResponseDto })
+  @UsePipes(new ZodValidationPipe(googleLoginSchema))
+  async google(@Body() body: GoogleLoginRequestDto): Promise<{
+    user: UserResponseDto;
+    tokens: TokenPairResponseDto;
+  }> {
+    return this.auth.loginWithGoogle(body);
   }
 
   @Post('refresh')

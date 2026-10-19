@@ -16,6 +16,7 @@ function createHarness() {
     findByEmail: vi.fn(),
     findByEmailWithHash: vi.fn(),
     create: vi.fn(),
+    createGoogleUser: vi.fn(),
   };
 
   const passwords = {
@@ -50,14 +51,20 @@ function createHarness() {
     ),
   };
 
+  const googleVerifier = {
+    verify: vi.fn(() => Promise.resolve({ email: 'gin@example.com', name: 'Gin' })),
+    verifyAccessToken: vi.fn(() => Promise.resolve({ email: 'gin@example.com', name: 'Gin' })),
+  };
+
   const service = new AuthService(
     users as unknown as UsersService,
     passwords,
     jwt as unknown as JwtService,
     prisma as unknown as PrismaService,
     CONFIG,
+    googleVerifier as unknown as import('./google-id-token.verifier.js').GoogleIdTokenVerifier,
   );
-  return { service, users, passwords, jwt, prisma, txRefreshToken };
+  return { service, users, passwords, jwt, prisma, txRefreshToken, googleVerifier };
 }
 
 const CUSTOMER_ROW = {
@@ -65,6 +72,7 @@ const CUSTOMER_ROW = {
   email: 'ada@example.com',
   name: 'Ada',
   role: 'CUSTOMER' as const,
+  provider: 'LOCAL' as const,
   createdAt: new Date('2026-10-06T12:00:00.000Z'),
   updatedAt: new Date('2026-10-06T12:00:00.000Z'),
 };
@@ -145,6 +153,88 @@ describe('AuthService', () => {
 
       expect(failure).toBeInstanceOf(UnauthorizedException);
       expect((failure as UnauthorizedException).message).toBe('Invalid credentials');
+    });
+
+    it('returns 401 for a Google user without a local password (no password oracle)', async () => {
+      const { service, users, passwords } = createHarness();
+      users.findByEmailWithHash.mockResolvedValue({ ...CUSTOMER_ROW, passwordHash: null });
+
+      await expect(
+        service.login({ email: 'ada@example.com', password: 'whatever-password' }),
+      ).rejects.toMatchObject({ status: 401, message: 'Invalid credentials' });
+      expect(passwords.verify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    it('signs in the existing user unchanged (no provider rewrite)', async () => {
+      const { service, users, googleVerifier, prisma } = createHarness();
+      googleVerifier.verify.mockResolvedValue({ email: 'Ada@Example.com', name: 'Ada' });
+      users.findByEmail.mockResolvedValue({ ...CUSTOMER_ROW });
+
+      const result = await service.loginWithGoogle({ idToken: 'valid-token' });
+
+      expect(googleVerifier.verify.mock.calls).toEqual([['valid-token']]);
+      expect(users.findByEmail.mock.calls).toEqual([['ada@example.com']]);
+      expect(users.createGoogleUser).not.toHaveBeenCalled();
+      expect(result.user.email).toBe('ada@example.com');
+      expect(result.tokens.accessToken).toBe('signed-access-jwt');
+      expect(prisma.refreshToken.create.mock.calls).toHaveLength(1);
+    });
+
+    it('creates a CUSTOMER without password on first Google use', async () => {
+      const { service, users, googleVerifier } = createHarness();
+      googleVerifier.verify.mockResolvedValue({ email: 'new@example.com', name: 'New User' });
+      users.findByEmail.mockResolvedValue(null);
+      users.createGoogleUser.mockResolvedValue({
+        ...CUSTOMER_ROW,
+        id: 'user-2',
+        email: 'new@example.com',
+        name: 'New User',
+        provider: 'GOOGLE',
+      });
+
+      const result = await service.loginWithGoogle({ idToken: 'valid-token' });
+
+      expect(users.createGoogleUser.mock.calls).toEqual([
+        [{ email: 'new@example.com', name: 'New User' }],
+      ]);
+      expect(result.user.provider).toBe('GOOGLE');
+      expect(result.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('maps verifier failures to 401', async () => {
+      const { service, users, googleVerifier } = createHarness();
+      googleVerifier.verify.mockRejectedValue(
+        new UnauthorizedException('Invalid Google credential'),
+      );
+
+      await expect(service.loginWithGoogle({ idToken: 'bad-token' })).rejects.toMatchObject({
+        status: 401,
+      });
+      expect(users.findByEmail).not.toHaveBeenCalled();
+    });
+
+    it('verifies OAuth2 access tokens from the popup flow', async () => {
+      const { service, users, googleVerifier } = createHarness();
+      googleVerifier.verifyAccessToken.mockResolvedValue({ email: 'Pop@Example.com', name: 'Pop' });
+      users.findByEmail.mockResolvedValue(null);
+      users.createGoogleUser.mockResolvedValue({
+        ...CUSTOMER_ROW,
+        id: 'user-3',
+        email: 'pop@example.com',
+        name: 'Pop',
+        provider: 'GOOGLE',
+      });
+
+      const result = await service.loginWithGoogle({ accessToken: 'ya29.valid' });
+
+      expect(googleVerifier.verifyAccessToken.mock.calls).toEqual([['ya29.valid']]);
+      expect(googleVerifier.verify).not.toHaveBeenCalled();
+      expect(users.createGoogleUser.mock.calls).toEqual([
+        [{ email: 'pop@example.com', name: 'Pop' }],
+      ]);
+      expect(result.user.provider).toBe('GOOGLE');
     });
   });
 

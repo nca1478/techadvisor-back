@@ -30,6 +30,17 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.output<typeof loginSchema>;
 
+export const googleLoginSchema = z
+  .object({
+    idToken: z.string({ error: 'idToken is required' }).min(1).optional(),
+    accessToken: z.string({ error: 'accessToken is required' }).min(1).optional(),
+  })
+  .refine((value) => value.idToken !== undefined || value.accessToken !== undefined, {
+    error: 'idToken or accessToken is required',
+  });
+
+export type GoogleLoginInput = z.output<typeof googleLoginSchema>;
+
 export const refreshSchema = z.object({
   refreshToken: z.string({ error: 'refreshToken is required' }).min(1, {
     error: 'refreshToken is required',

@@ -148,6 +148,13 @@ const envSchema = z
     JWT_SECRET: z
       .string({ error: 'JWT_SECRET is required (generate a long random secret, never commit it)' })
       .min(16, { error: 'JWT_SECRET must be at least 16 characters long' }),
+    GOOGLE_CLIENT_ID: z.preprocess(
+      emptyToUndefined,
+      z
+        .string({ error: 'GOOGLE_CLIENT_ID must be a Google OAuth web client id' })
+        .min(1, { error: 'GOOGLE_CLIENT_ID must be a non-empty client id' })
+        .optional(),
+    ),
     JWT_ACCESS_EXPIRES_IN_SEC: z.coerce.number().int().positive().default(900),
     JWT_REFRESH_EXPIRES_IN_SEC: z.coerce.number().int().positive().default(2592000),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),

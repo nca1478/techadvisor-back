@@ -6,6 +6,7 @@ import { UsersModule } from '../users/users.module.js';
 import { AuthSecurityModule } from './auth-security.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { GoogleIdTokenVerifier } from './google-id-token.verifier.js';
 
 @Module({
   imports: [
@@ -38,6 +39,6 @@ import { AuthService } from './auth.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, GoogleIdTokenVerifier],
 })
 export class AuthModule {}
