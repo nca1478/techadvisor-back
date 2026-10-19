@@ -2,9 +2,10 @@
  * Ingests the sample post-sale policies (`docs/content/policies/<locale>/`)
  * as `type: POLICY` documents (`npm run seed:policies` → this file).
  *
- * - Idempotent: documents are keyed by `source = 'seed:policy:<locale>:<slug>'`
- *   and re-runs skip when the content hash is unchanged, so they converge
- *   without duplicating chunks.
+ * - Create-if-not-exists (05-control-asistencia pattern): documents are
+ *   keyed by `source = 'seed:policy:<locale>:<slug>'`; when the record
+ *   already exists it is left untouched (no re-embedding, no overwrite) and
+ *   the run logs `SKIPPED (exists)`.
  * - Standalone `tsx` script on purpose (like `prisma/seed.ts`): it drives a
  *   direct `PrismaClient` with the configured `EmbeddingProvider` from the
  *   factory, mirroring the steps of `IngestionService.ingestDocument`
@@ -100,37 +101,36 @@ async function main(): Promise<void> {
         .sort();
       for (const file of files) {
         const slug = basename(file, '.md');
-        const markdown = await readFile(join(POLICIES_DIR, locale, file), 'utf8');
         const source = policySource(locale, slug);
+
+        // Create-if-not-exists: an existing record is left untouched.
+        const alreadyExists = await prisma.document.findFirst({
+          where: { source },
+          select: { id: true },
+        });
+        if (alreadyExists) {
+          skipped += 1;
+          console.log(`seed:policies: ${locale}/${file} → SKIPPED (exists)`);
+          continue;
+        }
+
+        const markdown = await readFile(join(POLICIES_DIR, locale, file), 'utf8');
         const { text } = await extractor.extract(Buffer.from(markdown, 'utf8'), MARKDOWN_TYPE);
         const hash = contentHash(text);
 
-        const existing = await prisma.document.findFirst({
-          where: { source },
-          select: { id: true, status: true, contentHash: true },
+        const { id: documentId } = await prisma.document.create({
+          data: {
+            type: 'POLICY',
+            title: policyTitle(markdown, slug),
+            locale,
+            productId: null,
+            categoryId: null,
+            source,
+            contentHash: 'pending',
+            status: 'PENDING',
+          },
+          select: { id: true },
         });
-        if (existing?.status === 'READY' && existing.contentHash === hash) {
-          skipped += 1;
-          console.log(`seed:policies: ${locale}/${file} → SKIPPED (unchanged)`);
-          continue;
-        }
-        const documentId =
-          existing?.id ??
-          (
-            await prisma.document.create({
-              data: {
-                type: 'POLICY',
-                title: policyTitle(markdown, slug),
-                locale,
-                productId: null,
-                categoryId: null,
-                source,
-                contentHash: 'pending',
-                status: 'PENDING',
-              },
-              select: { id: true },
-            })
-          ).id;
 
         await prisma.document.update({
           where: { id: documentId },

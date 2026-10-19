@@ -11,10 +11,11 @@
  * - POLICY from `docs/content/policies/<locale>/*.md` (`type: POLICY`,
  *   superset of the legacy `npm run seed:policies` script).
  *
- * - Idempotent: file documents are keyed by
- *   `source = '<prefix>:<locale>:<slug>'` and spec sheets by
- *   `(productId, 'auto:product')`; re-runs skip when the content hash is
- *   unchanged, so they converge without duplicating chunks.
+ * - Idempotent create-if-not-exists (05-control-asistencia pattern): file
+ *   documents are keyed by `source = '<prefix>:<locale>:<slug>'` and spec
+ *   sheets by `(productId, 'auto:product')`; when the record already exists
+ *   it is left untouched (no re-embedding, no overwrite) and the run logs
+ *   `SKIPPED (exists)`.
  * - Standalone `tsx` script on purpose (like `prisma/seed.ts`): it drives a
  *   direct `PrismaClient` with the configured `EmbeddingProvider` from the
  *   factory, mirroring the steps of `IngestionService.ingestDocument`
@@ -22,10 +23,11 @@
  *   persist) through the same pure helpers (`chunkText`, `contentHash`,
  *   `DocumentExtractorService`, `resolveEmbeddingColumnRef`). No Redis or
  *   worker needed, so the admin list is populated even before the worker
- *   ever runs.
- * - Revives soft-deleted seed rows (`deletedAt` → NULL): an admin delete
- *   stays respected until the next seed run, which restores the curated
- *   corpus. Manual uploads (`source = 'manual'`) are never touched.
+ *   ever runs. Only missing documents reach the embedding steps: existing
+ *   ones return early, so re-runs cost no embedding calls.
+ * - Manual uploads (`source = 'manual'`) are never touched, and seed rows
+ *   deleted by an admin are NOT revived: an existing record (even
+ *   soft-deleted) means "do not create".
  * - Refuses to run with `NODE_ENV=production`. The markdowns are clearly
  *   marked sample templates — the business must review them first.
  */
@@ -183,37 +185,34 @@ async function ingestFileDocument(
   markdown: string,
 ): Promise<'ready' | 'skipped'> {
   const source = seedDocumentSource(group.prefix, locale, slug);
+
+  // Create-if-not-exists (05-control-asistencia pattern): when the record
+  // already exists it is left untouched — no re-embedding, no overwrite.
+  const alreadyExists = await prisma.document.findFirst({
+    where: { source },
+    select: { id: true },
+  });
+  if (alreadyExists) {
+    return 'skipped';
+  }
+
   const { text } = await extractor.extract(Buffer.from(markdown, 'utf8'), MARKDOWN_TYPE);
   const hash = contentHash(text);
 
-  const existing = await prisma.document.findFirst({
-    where: { source },
-    select: { id: true, status: true, contentHash: true },
-  });
-  if (existing?.status === 'READY' && existing.contentHash === hash) {
-    // Revive in case an admin soft-deleted the seed row: the curated corpus
-    // converges back on every seed run.
-    await prisma.document.update({ where: { id: existing.id }, data: { deletedAt: null } });
-    return 'skipped';
-  }
   const title = seedDocumentTitle(markdown, slug);
-  const documentId =
-    existing?.id ??
-    (
-      await prisma.document.create({
-        data: {
-          type: group.type,
-          title,
-          locale,
-          productId: null,
-          categoryId: null,
-          source,
-          contentHash: 'pending',
-          status: 'PENDING',
-        },
-        select: { id: true },
-      })
-    ).id;
+  const { id: documentId } = await prisma.document.create({
+    data: {
+      type: group.type,
+      title,
+      locale,
+      productId: null,
+      categoryId: null,
+      source,
+      contentHash: 'pending',
+      status: 'PENDING',
+    },
+    select: { id: true },
+  });
 
   await prisma.document.update({
     where: { id: documentId },
@@ -307,7 +306,7 @@ async function main(): Promise<void> {
             console.log(`seed:documents: ${group.type} ${locale}/${file} → READY`);
           } else {
             skipped += 1;
-            console.log(`seed:documents: ${group.type} ${locale}/${file} → SKIPPED (unchanged)`);
+            console.log(`seed:documents: ${group.type} ${locale}/${file} → SKIPPED (exists)`);
           }
         }
       }
@@ -327,6 +326,15 @@ async function main(): Promise<void> {
     let specReady = 0;
     let specSkipped = 0;
     for (const product of products) {
+      // Create-if-not-exists: an existing spec sheet is left untouched.
+      const specExists = await prisma.document.findFirst({
+        where: { productId: product.id, source: AUTO_PRODUCT_SOURCE },
+        select: { id: true },
+      });
+      if (specExists) {
+        specSkipped += 1;
+        continue;
+      }
       const text = buildSpecSheetText({
         name: product.name,
         description: product.description,
@@ -336,36 +344,20 @@ async function main(): Promise<void> {
         category: { name: product.category.name },
       });
       const hash = contentHash(text);
-      const existing = await prisma.document.findFirst({
-        where: { productId: product.id, source: AUTO_PRODUCT_SOURCE },
-        select: { id: true, status: true, contentHash: true },
-      });
-      if (existing?.status === 'READY' && existing.contentHash === hash) {
-        await prisma.document.update({
-          where: { id: existing.id },
-          data: { deletedAt: null },
-        });
-        specSkipped += 1;
-        continue;
-      }
       const title = specSheetTitle(product.name);
-      const documentId =
-        existing?.id ??
-        (
-          await prisma.document.create({
-            data: {
-              productId: product.id,
-              categoryId: product.categoryId,
-              type: 'SPEC_SHEET',
-              title,
-              locale: defaultLocale,
-              source: AUTO_PRODUCT_SOURCE,
-              contentHash: 'pending',
-              status: 'PENDING',
-            },
-            select: { id: true },
-          })
-        ).id;
+      const { id: documentId } = await prisma.document.create({
+        data: {
+          productId: product.id,
+          categoryId: product.categoryId,
+          type: 'SPEC_SHEET',
+          title,
+          locale: defaultLocale,
+          source: AUTO_PRODUCT_SOURCE,
+          contentHash: 'pending',
+          status: 'PENDING',
+        },
+        select: { id: true },
+      });
       await prisma.document.update({
         where: { id: documentId },
         data: {

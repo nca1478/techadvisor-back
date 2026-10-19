@@ -1,11 +1,13 @@
 /**
  * Idempotent development/demo seed (`npm run seed` → `tsx prisma/seed.ts`).
  *
- * - Upserts everything on business keys (`slug`/`sku`/email), so running it
- *   twice converges to the same rows instead of duplicating them.
- * - Every product row is validated against the category Zod specs schemas
- *   (`parseSpecs`) and every image against `imageUrlSchema` before touching
- *   the database; the first invalid row aborts the whole run.
+ * - Create-if-not-exists on business keys (`slug`/`sku`/email), following the
+ *   `05-control-asistencia-opencode` pattern (`upsert` with `update: {}`):
+ *   running it twice never duplicates rows and never overwrites existing
+ *   ones — if the record exists it is left untouched.
+ * - Every new product row is validated against the category Zod specs schemas
+ *   (`parseSpecs`) and every new image against `imageUrlSchema` before
+ *   touching the database; existing rows are skipped without re-validating.
  * - Writes only the base price in BASE_CURRENCY (no `product_prices` rows —
  *   see ADR 0007/0014).
  * - Refuses to run with `NODE_ENV=production`. Test users are dev fixtures
@@ -43,14 +45,11 @@ async function seedCategories(prisma: PrismaClient, data: SeedData): Promise<Map
     if (category.imageUrl !== undefined) {
       imageUrlSchema.parse(category.imageUrl);
     }
+    // Create-if-not-exists (05-control-asistencia pattern): existing rows are
+    // left untouched (`update: {}`), never overwritten.
     const row = await prisma.category.upsert({
       where: { slug: category.slug },
-      update: {
-        name: category.name,
-        imageUrl: category.imageUrl ?? null,
-        imageAlt: category.imageAlt ?? null,
-        showInHome: category.showInHome,
-      },
+      update: {},
       create: {
         slug: category.slug,
         name: category.name,
@@ -61,7 +60,7 @@ async function seedCategories(prisma: PrismaClient, data: SeedData): Promise<Map
     });
     await prisma.categoryTranslation.upsert({
       where: { categoryId_locale: { categoryId: row.id, locale: ES_LOCALE } },
-      update: { name: category.nameEs },
+      update: {},
       create: { categoryId: row.id, locale: ES_LOCALE, name: category.nameEs },
     });
     idsBySlug.set(category.slug, row.id);
@@ -74,7 +73,7 @@ async function seedBrands(prisma: PrismaClient, data: SeedData): Promise<Map<str
   for (const brand of data.brands) {
     const row = await prisma.brand.upsert({
       where: { slug: brand.slug },
-      update: { name: brand.name },
+      update: {},
       create: { slug: brand.slug, name: brand.name },
     });
     idsBySlug.set(brand.slug, row.id);
@@ -84,10 +83,15 @@ async function seedBrands(prisma: PrismaClient, data: SeedData): Promise<Map<str
 
 async function seedUsers(prisma: PrismaClient, data: SeedData): Promise<void> {
   for (const user of data.users) {
+    // Skip the argon2 cost entirely when the user already exists.
+    const existing = await prisma.user.findUnique({ where: { email: user.email } });
+    if (existing) {
+      continue;
+    }
     const passwordHash = await argon2.hash(user.password, { type: argon2.argon2id });
     await prisma.user.upsert({
       where: { email: user.email },
-      update: { passwordHash, name: user.name, role: user.role },
+      update: {},
       create: { email: user.email, passwordHash, name: user.name, role: user.role },
     });
   }
@@ -101,6 +105,15 @@ async function seedProducts(
   currency: string,
 ): Promise<void> {
   for (const product of data.products) {
+    // Create-if-not-exists: an existing sku is left completely untouched
+    // (product row, images, translation and inventory are preserved as-is).
+    const alreadyExists = await prisma.product.findUnique({
+      where: { sku: product.sku },
+      select: { id: true },
+    });
+    if (alreadyExists) {
+      continue;
+    }
     const categoryId = categoryIds.get(product.category);
     if (!categoryId) {
       throw new Error(
@@ -118,17 +131,7 @@ async function seedProducts(
     const specs: Prisma.InputJsonValue = { ...product.specs };
     const row = await prisma.product.upsert({
       where: { sku: product.sku },
-      update: {
-        slug: product.slug,
-        name: product.name,
-        description: product.description,
-        brandId,
-        categoryId,
-        priceAmount: product.priceAmount,
-        currency,
-        status: product.status,
-        specs,
-      },
+      update: {},
       create: {
         sku: product.sku,
         slug: product.slug,
@@ -143,8 +146,8 @@ async function seedProducts(
       },
     });
 
-    // Images converge: replace the set so re-runs never append duplicates.
-    await prisma.productImage.deleteMany({ where: { productId: row.id } });
+    // Images are written only for newly created products, so re-runs never
+    // append duplicates nor overwrite manual changes.
     await prisma.productImage.createMany({
       data: product.images.map((url, index) => ({
         productId: row.id,
@@ -156,7 +159,7 @@ async function seedProducts(
 
     await prisma.productTranslation.upsert({
       where: { productId_locale: { productId: row.id, locale: ES_LOCALE } },
-      update: { name: product.nameEs, description: product.descriptionEs },
+      update: {},
       create: {
         productId: row.id,
         locale: ES_LOCALE,
@@ -167,7 +170,7 @@ async function seedProducts(
 
     await prisma.inventory.upsert({
       where: { productId: row.id },
-      update: { stock: product.stock },
+      update: {},
       create: { productId: row.id, stock: product.stock, reserved: 0 },
     });
   }
