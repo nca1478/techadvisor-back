@@ -52,3 +52,16 @@ el reintento manual no era idempotente en ese estado.
 - Tras corregir el `buildCommand` en el Dashboard y marcar como aplicadas las
   migraciones ya existentes, `migrate deploy` vuelve a ser idempotente.
 - No hay cambios de código ni migraciones nuevas; solo configuración y runbook.
+
+## Verificación 2026-10-19 (no aplicar `resolve` desde el `.env` local)
+
+`npx prisma migrate status` con el `DATABASE_URL` del `.env` local muestra 2
+aplicadas / 26 pendientes, mientras el fallo de Render tropezó en la
+migración #2: son **bases distintas** (mismo pooler, distinto proyecto o
+restauración intermedia). El `resolve --applied` debe ejecutarse con el
+`DATABASE_URL` del Dashboard de Render, nunca con el local.
+Además, la migración pendiente `20261014005223` es destructiva (dropea
+`embedding`/`tsv`, ver ADR 0049): si la BD de Render aún tiene vectores, esa
+migración debe marcarse `--applied` sin ejecutarse, o el RAG quedaría vacío
+hasta re-ingerir. El MCP de Render no expone cambio de `buildCommand`: se
+corrige a mano en el Dashboard.
