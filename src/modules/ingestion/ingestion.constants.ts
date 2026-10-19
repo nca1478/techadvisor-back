@@ -40,6 +40,19 @@ export const AUTO_PRODUCT_SOURCE = 'auto:product';
 /** `documents.source` marker for admin-registered documents. */
 export const MANUAL_SOURCE = 'manual';
 
+/**
+ * Unique provenance for one admin-registered document. Every manual upload or
+ * URL registration gets `manual:<documentId>` instead of the bare `manual`
+ * marker, so `@@unique([productId, source])` keeps limiting `auto:product`
+ * to one row per product (see product-spec-sheet.service.ts) without capping
+ * manual documents at one per product (see ADR 0074). Rows created before
+ * ADR 0074 keep the legacy bare `manual` value and keep working: nothing
+ * filters on `source === 'manual'`.
+ */
+export function manualDocumentSource(documentId: string): string {
+  return `${MANUAL_SOURCE}:${documentId}`;
+}
+
 /** Failure detail persisted on `documents.error` is truncated to this. */
 export const MAX_ERROR_LENGTH = 500;
 

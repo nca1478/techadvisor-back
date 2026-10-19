@@ -6,12 +6,14 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { APP_CONFIG } from '../../../config/app-config.module.js';
 import type { AppConfig } from '../../../config/env.schema.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma as PrismaNamespace } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { IngestionService } from '../../ingestion/ingestion.service.js';
-import { MANUAL_SOURCE } from '../../ingestion/ingestion.constants.js';
+import { manualDocumentSource } from '../../ingestion/ingestion.constants.js';
 import type { AdminDocumentDto, AdminDocumentListDto } from './dto/admin-document.dto.js';
 import { DocumentStorageService } from './document-storage.service.js';
 import { UploadValidationError, validateUpload } from './validate-upload.js';
@@ -104,23 +106,26 @@ export class AdminDocumentsService {
     await this.assertAssociations(input.productId, input.categoryId);
     const { raw, contentType } = await this.fetchUrl(input.sourceUrl);
     const validated = this.validateOrThrow(raw, contentType);
-    const document = await this.prisma.document.create({
-      data: {
-        type: input.type,
-        title: input.title,
-        locale: input.locale,
-        productId: input.productId ?? null,
-        categoryId: input.categoryId ?? null,
-        sourceUrl: input.sourceUrl,
-        source: MANUAL_SOURCE,
-        contentHash: 'pending',
-        status: 'PENDING',
-        fileName: null,
-        mimeType: validated.mimeType,
-        sizeBytes: validated.sizeBytes,
-        storageKey: null,
-      },
-      include: { _count: { select: { chunks: true } } },
+    // The id is generated here (instead of relying on the DB default) so the
+    // provenance marker is unique per document: `@@unique([productId,
+    // source])` must keep limiting `auto:product` to one row per product
+    // without capping manual documents at one per product (see ADR 0074).
+    const documentId = randomUUID();
+    const document = await this.createDocumentOrThrow({
+      id: documentId,
+      type: input.type,
+      title: input.title,
+      locale: input.locale,
+      productId: input.productId ?? null,
+      categoryId: input.categoryId ?? null,
+      sourceUrl: input.sourceUrl,
+      source: manualDocumentSource(documentId),
+      contentHash: 'pending',
+      status: 'PENDING',
+      fileName: null,
+      mimeType: validated.mimeType,
+      sizeBytes: validated.sizeBytes,
+      storageKey: null,
     });
     const storageKey = await this.storage.save(document.id, raw);
     const stored = await this.prisma.document.update({
@@ -146,22 +151,22 @@ export class AdminDocumentsService {
     const raw = Buffer.from(file.buffer);
     const validated = this.validateOrThrow(raw, file.mimetype);
     const title = fields.title ?? sanitizeTitle(file.originalname);
-    const document = await this.prisma.document.create({
-      data: {
-        type: fields.type,
-        title,
-        locale: fields.locale,
-        productId: fields.productId ?? null,
-        categoryId: fields.categoryId ?? null,
-        source: MANUAL_SOURCE,
-        contentHash: 'pending',
-        status: 'PENDING',
-        fileName: sanitizeTitle(file.originalname),
-        mimeType: validated.mimeType,
-        sizeBytes: validated.sizeBytes,
-        storageKey: null,
-      },
-      include: { _count: { select: { chunks: true } } },
+    // Same unique-provenance rationale as `createFromUrl` (see ADR 0074).
+    const documentId = randomUUID();
+    const document = await this.createDocumentOrThrow({
+      id: documentId,
+      type: fields.type,
+      title,
+      locale: fields.locale,
+      productId: fields.productId ?? null,
+      categoryId: fields.categoryId ?? null,
+      source: manualDocumentSource(documentId),
+      contentHash: 'pending',
+      status: 'PENDING',
+      fileName: sanitizeTitle(file.originalname),
+      mimeType: validated.mimeType,
+      sizeBytes: validated.sizeBytes,
+      storageKey: null,
     });
     const storageKey = await this.storage.save(document.id, raw);
     await this.prisma.document.update({ where: { id: document.id }, data: { storageKey } });
@@ -285,6 +290,34 @@ export class AdminDocumentsService {
     } catch (error) {
       if (error instanceof UploadValidationError) {
         throw new BadRequestException({ message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Creates the document row, mapping a unique-constraint collision (Prisma
+   * P2002) to a legible 409 instead of leaking a 500 (same pattern as
+   * `AdminService.toUniqueConflict`). Unreachable in practice — manual
+   * sources are unique per document since ADR 0074 — but this error class
+   * must never surface as `INTERNAL_ERROR` again.
+   */
+  private async createDocumentOrThrow(
+    data: Prisma.DocumentUncheckedCreateInput,
+  ): Promise<DocumentRow> {
+    try {
+      return await this.prisma.document.create({
+        data,
+        include: { _count: { select: { chunks: true } } },
+      });
+    } catch (error) {
+      if (
+        error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException({
+          message: 'A document with the same product and source already exists',
+        });
       }
       throw error;
     }

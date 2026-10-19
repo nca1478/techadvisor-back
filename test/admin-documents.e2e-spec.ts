@@ -294,6 +294,42 @@ describe('Admin documents (e2e)', () => {
     expect(chunk?.content).toContain('Laptop X1');
   });
 
+  it('accepts a second manual document for the same product (no unique conflict)', async () => {
+    // Regression: every manual upload used `source = 'manual'`, so
+    // `@@unique([productId, source])` rejected the second manual per product
+    // with a 500 (see ADR 0074). Manual sources are unique per document now.
+    const first = await request(app.getHttpServer())
+      .post('/api/v1/admin/documents/upload')
+      .set(authHeader(adminToken))
+      .attach('file', Buffer.from(longMarkdown(`multi-manual-a-${suffix}`, 12), 'utf8'), {
+        filename: 'manual-a.md',
+        contentType: 'text/markdown',
+      })
+      .field('title', `First manual ${suffix}`)
+      .field('type', 'MANUAL')
+      .field('locale', 'en')
+      .field('productId', productId)
+      .expect(201);
+    createdDocumentIds.push((first.body as DocumentBody).id);
+
+    const second = await request(app.getHttpServer())
+      .post('/api/v1/admin/documents/upload')
+      .set(authHeader(adminToken))
+      .attach('file', Buffer.from(longMarkdown(`multi-manual-b-${suffix}`, 12), 'utf8'), {
+        filename: 'manual-b.md',
+        contentType: 'text/markdown',
+      })
+      .field('title', `Second manual ${suffix}`)
+      .field('type', 'MANUAL')
+      .field('locale', 'en')
+      .field('productId', productId)
+      .expect(201);
+    const secondBody = second.body as DocumentBody;
+    createdDocumentIds.push(secondBody.id);
+    expect(secondBody.productId).toBe(productId);
+    expect(secondBody.status).toBe('READY');
+  });
+
   it('lists documents with status and shows detail with chunk count', async () => {
     const id = createdDocumentIds.at(0) ?? '';
     const list = await request(app.getHttpServer())
