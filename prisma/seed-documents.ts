@@ -11,11 +11,14 @@
  * - POLICY from `docs/content/policies/<locale>/*.md` (`type: POLICY`,
  *   superset of the legacy `npm run seed:policies` script).
  *
- * - Idempotent create-if-not-exists (05-control-asistencia pattern): file
- *   documents are keyed by `source = '<prefix>:<locale>:<slug>'` and spec
- *   sheets by `(productId, 'auto:product')`; when the record already exists
- *   it is left untouched (no re-embedding, no overwrite) and the run logs
+ * - Create-if-not-exists (05-control-asistencia pattern): file documents
+ *   are keyed by `source = '<prefix>:<locale>:<slug>'` and spec sheets by
+ *   `(productId, 'auto:product')`; when the record already exists it is
+ *   left untouched (no re-embedding, no overwrite) and the run logs
  *   `SKIPPED (exists)`.
+ * - Every run prints a summary with the created/skipped counts for the
+ *   `documents` and `chunks` tables plus a per-type breakdown, so it is
+ *   clear which tables gained rows and which were left untouched.
  * - Standalone `tsx` script on purpose (like `prisma/seed.ts`): it drives a
  *   direct `PrismaClient` with the configured `EmbeddingProvider` from the
  *   factory, mirroring the steps of `IngestionService.ingestDocument`
@@ -173,6 +176,14 @@ async function persistChunks(
   return chunks.length;
 }
 
+interface IngestOutcome {
+  status: 'ready' | 'skipped';
+  /** Present when the document already existed and was left untouched. */
+  skippedDocumentId: string | null;
+  /** Chunks written for a newly created document. */
+  chunksWritten: number;
+}
+
 async function ingestFileDocument(
   prisma: PrismaClient,
   embeddings: EmbeddingProvider,
@@ -183,7 +194,7 @@ async function ingestFileDocument(
   locale: string,
   slug: string,
   markdown: string,
-): Promise<'ready' | 'skipped'> {
+): Promise<IngestOutcome> {
   const source = seedDocumentSource(group.prefix, locale, slug);
 
   // Create-if-not-exists (05-control-asistencia pattern): when the record
@@ -193,7 +204,7 @@ async function ingestFileDocument(
     select: { id: true },
   });
   if (alreadyExists) {
-    return 'skipped';
+    return { status: 'skipped', skippedDocumentId: alreadyExists.id, chunksWritten: 0 };
   }
 
   const { text } = await extractor.extract(Buffer.from(markdown, 'utf8'), MARKDOWN_TYPE);
@@ -228,7 +239,7 @@ async function ingestFileDocument(
     },
   });
   try {
-    await persistChunks(
+    const chunksWritten = await persistChunks(
       prisma,
       embeddings,
       column,
@@ -242,7 +253,7 @@ async function ingestFileDocument(
       text,
       hash,
     );
-    return 'ready';
+    return { status: 'ready', skippedDocumentId: null, chunksWritten };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown ingestion failure';
     await prisma.document.update({
@@ -268,8 +279,11 @@ async function main(): Promise<void> {
     adapter: new PrismaPg({ connectionString: requireEnv('DATABASE_URL') }),
   });
   try {
-    let ready = 0;
-    let skipped = 0;
+    // Per-group created/skipped plus the chunk rows written or preserved, so
+    // every run reports which tables gained rows and which were untouched.
+    const groupReport = new Map<string, { created: number; skipped: number }>();
+    const skippedDocumentIds: string[] = [];
+    let chunksCreated = 0;
 
     for (const group of CONTENT_GROUPS) {
       const groupDir = join(CONTENT_ROOT, group.dir);
@@ -301,13 +315,19 @@ async function main(): Promise<void> {
             slug,
             markdown,
           );
-          if (outcome === 'ready') {
-            ready += 1;
+          const entry = groupReport.get(group.type) ?? { created: 0, skipped: 0 };
+          if (outcome.status === 'ready') {
+            entry.created += 1;
+            chunksCreated += outcome.chunksWritten;
             console.log(`seed:documents: ${group.type} ${locale}/${file} → READY`);
           } else {
-            skipped += 1;
+            entry.skipped += 1;
+            if (outcome.skippedDocumentId !== null) {
+              skippedDocumentIds.push(outcome.skippedDocumentId);
+            }
             console.log(`seed:documents: ${group.type} ${locale}/${file} → SKIPPED (exists)`);
           }
+          groupReport.set(group.type, entry);
         }
       }
     }
@@ -333,6 +353,8 @@ async function main(): Promise<void> {
       });
       if (specExists) {
         specSkipped += 1;
+        skippedDocumentIds.push(specExists.id);
+        console.log(`seed:documents: SPEC_SHEET ${product.sku} → SKIPPED (exists)`);
         continue;
       }
       const text = buildSpecSheetText({
@@ -387,6 +409,7 @@ async function main(): Promise<void> {
           hash,
         );
         specReady += 1;
+        chunksCreated += count;
         console.log(`seed:documents: SPEC_SHEET ${product.sku} → READY (${String(count)} chunks)`);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown ingestion failure';
@@ -398,10 +421,28 @@ async function main(): Promise<void> {
       }
     }
 
+    const chunksSkipped =
+      skippedDocumentIds.length > 0
+        ? await prisma.chunk.count({ where: { documentId: { in: skippedDocumentIds } } })
+        : 0;
+    const documentsCreated =
+      specReady + [...groupReport.values()].reduce((sum, entry) => sum + entry.created, 0);
+    const documentsSkipped =
+      specSkipped + [...groupReport.values()].reduce((sum, entry) => sum + entry.skipped, 0);
     console.log(
-      `seed:documents: ok — files ingested=${String(ready)} skipped=${String(skipped)} ` +
-        `specSheets ingested=${String(specReady)} skipped=${String(specSkipped)} ` +
-        `products=${String(products.length)}`,
+      `seed:documents: created — documents=${String(documentsCreated)} chunks=${String(chunksCreated)}`,
+    );
+    console.log(
+      `seed:documents: skipped — documents=${String(documentsSkipped)} chunks=${String(chunksSkipped)}`,
+    );
+    for (const [docType, entry] of groupReport) {
+      console.log(
+        `seed:documents: ${docType} → created=${String(entry.created)} skipped=${String(entry.skipped)}`,
+      );
+    }
+    console.log(
+      `seed:documents: SPEC_SHEET → created=${String(specReady)} skipped=${String(specSkipped)} ` +
+        `(products=${String(products.length)})`,
     );
   } finally {
     await prisma.$disconnect();

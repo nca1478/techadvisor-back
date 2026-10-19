@@ -6,6 +6,9 @@
  *   keyed by `source = 'seed:policy:<locale>:<slug>'`; when the record
  *   already exists it is left untouched (no re-embedding, no overwrite) and
  *   the run logs `SKIPPED (exists)`.
+ * - Every run prints a summary with the created/skipped counts for the
+ *   `documents` and `chunks` tables, so it is clear which tables gained
+ *   rows and which were left untouched.
  * - Standalone `tsx` script on purpose (like `prisma/seed.ts`): it drives a
  *   direct `PrismaClient` with the configured `EmbeddingProvider` from the
  *   factory, mirroring the steps of `IngestionService.ingestDocument`
@@ -95,6 +98,8 @@ async function main(): Promise<void> {
   try {
     let ready = 0;
     let skipped = 0;
+    let chunksCreated = 0;
+    const skippedDocumentIds: string[] = [];
     for (const locale of locales) {
       const files = (await readdir(join(POLICIES_DIR, locale)))
         .filter((file) => file.endsWith('.md'))
@@ -110,6 +115,7 @@ async function main(): Promise<void> {
         });
         if (alreadyExists) {
           skipped += 1;
+          skippedDocumentIds.push(alreadyExists.id);
           console.log(`seed:policies: ${locale}/${file} → SKIPPED (exists)`);
           continue;
         }
@@ -190,6 +196,7 @@ async function main(): Promise<void> {
             data: { status: 'READY', contentHash: hash, error: null },
           });
           ready += 1;
+          chunksCreated += chunks.length;
           console.log(`seed:policies: ${locale}/${file} → READY (${String(chunks.length)} chunks)`);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown ingestion failure';
@@ -201,7 +208,16 @@ async function main(): Promise<void> {
         }
       }
     }
-    console.log(`seed:policies: ok — ingested=${String(ready)} skipped=${String(skipped)}`);
+    const chunksSkipped =
+      skippedDocumentIds.length > 0
+        ? await prisma.chunk.count({ where: { documentId: { in: skippedDocumentIds } } })
+        : 0;
+    console.log(
+      `seed:policies: created — documents=${String(ready)} chunks=${String(chunksCreated)}`,
+    );
+    console.log(
+      `seed:policies: skipped — documents=${String(skipped)} chunks=${String(chunksSkipped)}`,
+    );
   } finally {
     await prisma.$disconnect();
   }

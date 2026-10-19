@@ -8,6 +8,8 @@
  * - Every new product row is validated against the category Zod specs schemas
  *   (`parseSpecs`) and every new image against `imageUrlSchema` before
  *   touching the database; existing rows are skipped without re-validating.
+ * - Every run prints one `created/skipped` line per table, so it is clear
+ *   which tables gained rows and which were left untouched.
  * - Writes only the base price in BASE_CURRENCY (no `product_prices` rows —
  *   see ADR 0007/0014).
  * - Refuses to run with `NODE_ENV=production`. Test users are dev fixtures
@@ -25,6 +27,39 @@ import { loadSeedData, type SeedData, type SeedProduct } from './seed-data/seed-
 const SEED_DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), 'seed-data');
 const ES_LOCALE = 'es';
 
+/** Created vs skipped counters for one table. */
+interface TableCount {
+  created: number;
+  skipped: number;
+}
+
+type SeedReport = Record<string, TableCount>;
+
+function emptyCount(): TableCount {
+  return { created: 0, skipped: 0 };
+}
+
+function mergeReport(into: SeedReport, table: string, count: TableCount): void {
+  const current = into[table] ?? emptyCount();
+  into[table] = {
+    created: current.created + count.created,
+    skipped: current.skipped + count.skipped,
+  };
+}
+
+/**
+ * One line per table so every run reports which tables gained rows and
+ * which tables were left untouched:
+ * `seed: categories → created=5 skipped=0`.
+ */
+function logSeedReport(report: SeedReport): void {
+  for (const [table, count] of Object.entries(report)) {
+    console.log(
+      `seed: ${table} → created=${String(count.created)} skipped=${String(count.skipped)}`,
+    );
+  }
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -39,14 +74,27 @@ function validateProductImages(product: SeedProduct): void {
   }
 }
 
-async function seedCategories(prisma: PrismaClient, data: SeedData): Promise<Map<string, string>> {
+async function seedCategories(
+  prisma: PrismaClient,
+  data: SeedData,
+): Promise<{ idsBySlug: Map<string, string>; report: SeedReport }> {
   const idsBySlug = new Map<string, string>();
+  const report: SeedReport = { categories: emptyCount(), categoryTranslations: emptyCount() };
+  const existingSlugs = new Set(
+    (
+      await prisma.category.findMany({
+        where: { slug: { in: data.categories.map((category) => category.slug) } },
+        select: { slug: true },
+      })
+    ).map((row) => row.slug),
+  );
   for (const category of data.categories) {
     if (category.imageUrl !== undefined) {
       imageUrlSchema.parse(category.imageUrl);
     }
     // Create-if-not-exists (05-control-asistencia pattern): existing rows are
     // left untouched (`update: {}`), never overwritten.
+    const isNew = !existingSlugs.has(category.slug);
     const row = await prisma.category.upsert({
       where: { slug: category.slug },
       update: {},
@@ -58,34 +106,65 @@ async function seedCategories(prisma: PrismaClient, data: SeedData): Promise<Map
         showInHome: category.showInHome,
       },
     });
-    await prisma.categoryTranslation.upsert({
+    report.categories[isNew ? 'created' : 'skipped'] += 1;
+    const translationExists = await prisma.categoryTranslation.findUnique({
       where: { categoryId_locale: { categoryId: row.id, locale: ES_LOCALE } },
-      update: {},
-      create: { categoryId: row.id, locale: ES_LOCALE, name: category.nameEs },
+      select: { categoryId: true },
     });
+    if (translationExists) {
+      report.categoryTranslations.skipped += 1;
+    } else {
+      await prisma.categoryTranslation.create({
+        data: { categoryId: row.id, locale: ES_LOCALE, name: category.nameEs },
+      });
+      report.categoryTranslations.created += 1;
+    }
     idsBySlug.set(category.slug, row.id);
   }
-  return idsBySlug;
+  return { idsBySlug, report };
 }
 
-async function seedBrands(prisma: PrismaClient, data: SeedData): Promise<Map<string, string>> {
+async function seedBrands(
+  prisma: PrismaClient,
+  data: SeedData,
+): Promise<{ idsBySlug: Map<string, string>; report: SeedReport }> {
   const idsBySlug = new Map<string, string>();
+  const report: SeedReport = { brands: emptyCount() };
+  const existingSlugs = new Set(
+    (
+      await prisma.brand.findMany({
+        where: { slug: { in: data.brands.map((brand) => brand.slug) } },
+        select: { slug: true },
+      })
+    ).map((row) => row.slug),
+  );
   for (const brand of data.brands) {
+    const isNew = !existingSlugs.has(brand.slug);
     const row = await prisma.brand.upsert({
       where: { slug: brand.slug },
       update: {},
       create: { slug: brand.slug, name: brand.name },
     });
+    report.brands[isNew ? 'created' : 'skipped'] += 1;
     idsBySlug.set(brand.slug, row.id);
   }
-  return idsBySlug;
+  return { idsBySlug, report };
 }
 
-async function seedUsers(prisma: PrismaClient, data: SeedData): Promise<void> {
+async function seedUsers(prisma: PrismaClient, data: SeedData): Promise<SeedReport> {
+  const report: SeedReport = { users: emptyCount() };
+  const existingEmails = new Set(
+    (
+      await prisma.user.findMany({
+        where: { email: { in: data.users.map((user) => user.email) } },
+        select: { email: true },
+      })
+    ).map((row) => row.email),
+  );
   for (const user of data.users) {
     // Skip the argon2 cost entirely when the user already exists.
-    const existing = await prisma.user.findUnique({ where: { email: user.email } });
-    if (existing) {
+    if (existingEmails.has(user.email)) {
+      report.users.skipped += 1;
       continue;
     }
     const passwordHash = await argon2.hash(user.password, { type: argon2.argon2id });
@@ -94,7 +173,9 @@ async function seedUsers(prisma: PrismaClient, data: SeedData): Promise<void> {
       update: {},
       create: { email: user.email, passwordHash, name: user.name, role: user.role },
     });
+    report.users.created += 1;
   }
+  return report;
 }
 
 async function seedProducts(
@@ -103,15 +184,29 @@ async function seedProducts(
   categoryIds: Map<string, string>,
   brandIds: Map<string, string>,
   currency: string,
-): Promise<void> {
+): Promise<SeedReport> {
+  const report: SeedReport = {
+    products: emptyCount(),
+    productImages: emptyCount(),
+    productTranslations: emptyCount(),
+    inventory: emptyCount(),
+  };
+  const existingBySku = new Map(
+    (
+      await prisma.product.findMany({
+        where: { sku: { in: data.products.map((product) => product.sku) } },
+        select: { id: true, sku: true },
+      })
+    ).map((row) => [row.sku, row.id] as const),
+  );
+  const skippedIds: string[] = [];
   for (const product of data.products) {
     // Create-if-not-exists: an existing sku is left completely untouched
     // (product row, images, translation and inventory are preserved as-is).
-    const alreadyExists = await prisma.product.findUnique({
-      where: { sku: product.sku },
-      select: { id: true },
-    });
-    if (alreadyExists) {
+    const existingId = existingBySku.get(product.sku);
+    if (existingId !== undefined) {
+      report.products.skipped += 1;
+      skippedIds.push(existingId);
       continue;
     }
     const categoryId = categoryIds.get(product.category);
@@ -156,6 +251,8 @@ async function seedProducts(
         position: index,
       })),
     });
+    report.products.created += 1;
+    report.productImages.created += product.images.length;
 
     await prisma.productTranslation.upsert({
       where: { productId_locale: { productId: row.id, locale: ES_LOCALE } },
@@ -167,13 +264,28 @@ async function seedProducts(
         description: product.descriptionEs,
       },
     });
+    report.productTranslations.created += 1;
 
     await prisma.inventory.upsert({
       where: { productId: row.id },
       update: {},
       create: { productId: row.id, stock: product.stock, reserved: 0 },
     });
+    report.inventory.created += 1;
   }
+  // Child rows of skipped products are preserved as-is; count them so the
+  // summary reports exactly which tables were left untouched.
+  if (skippedIds.length > 0) {
+    const [skippedImages, skippedTranslations, skippedInventory] = await Promise.all([
+      prisma.productImage.count({ where: { productId: { in: skippedIds } } }),
+      prisma.productTranslation.count({ where: { productId: { in: skippedIds } } }),
+      prisma.inventory.count({ where: { productId: { in: skippedIds } } }),
+    ]);
+    report.productImages.skipped += skippedImages;
+    report.productTranslations.skipped += skippedTranslations;
+    report.inventory.skipped += skippedInventory;
+  }
+  return report;
 }
 
 async function main(): Promise<void> {
@@ -186,26 +298,19 @@ async function main(): Promise<void> {
   const data = await loadSeedData(SEED_DATA_DIR);
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
   try {
-    const categoryIds = await seedCategories(prisma, data);
-    const brandIds = await seedBrands(prisma, data);
-    await seedUsers(prisma, data);
-    await seedProducts(prisma, data, categoryIds, brandIds, currency);
+    const { idsBySlug: categoryIds, report: categoryReport } = await seedCategories(prisma, data);
+    const { idsBySlug: brandIds, report: brandReport } = await seedBrands(prisma, data);
+    const userReport = await seedUsers(prisma, data);
+    const productReport = await seedProducts(prisma, data, categoryIds, brandIds, currency);
 
-    const [categories, brands, products, images, translations, inventory, users] =
-      await Promise.all([
-        prisma.category.count(),
-        prisma.brand.count(),
-        prisma.product.count(),
-        prisma.productImage.count(),
-        prisma.productTranslation.count(),
-        prisma.inventory.count(),
-        prisma.user.count(),
-      ]);
-    console.log(
-      `seed: ok (currency=${currency}) — categories=${String(categories)} brands=${String(brands)} ` +
-        `products=${String(products)} images=${String(images)} productTranslations=${String(translations)} ` +
-        `inventory=${String(inventory)} users=${String(users)}`,
-    );
+    const report: SeedReport = {};
+    for (const partial of [categoryReport, brandReport, userReport, productReport]) {
+      for (const [table, count] of Object.entries(partial)) {
+        mergeReport(report, table, count);
+      }
+    }
+    console.log(`seed: ok (currency=${currency})`);
+    logSeedReport(report);
   } finally {
     await prisma.$disconnect();
   }
