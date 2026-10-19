@@ -19,13 +19,17 @@ import type { PurchaseIntent } from '../intent/purchase-intent.schema.js';
 import { splitIntoDeltas } from '../chat-sessions.controller.js';
 import {
   buildDeterministicMessage,
+  buildIncompatibleAnchorsMessage,
   buildSpecCondition,
+  extractAnchorIds,
+  filterCompatibleCandidates,
   keepValidItems,
   RECOMMEND_BRAND_BONUS,
   RecommendService,
   scoreCandidate,
   summarizeSpecs,
   toCandidateFilters,
+  toCompatibilityProduct,
   toProductCard,
   type RecommendCandidate,
 } from './recommendation.service.js';
@@ -121,7 +125,8 @@ function buildService(options: {
   intent?: PurchaseIntent | Error;
   llmTexts?: string[];
   hits?: RetrievalHit[];
-  historyMessages?: { role: 'USER' | 'ASSISTANT'; content: string }[];
+  historyMessages?: { role: 'USER' | 'ASSISTANT'; content: string; products?: unknown[] }[];
+  anchorRows?: { id: string; name: string; categorySlug: string; specs: Record<string, unknown> }[];
 }): ServiceMocks {
   const seenSql: Prisma.Sql[] = [];
   const rowsOrFn = options.candidateRows ?? [candidateRow()];
@@ -131,9 +136,20 @@ function buildService(options: {
     return Promise.resolve(rows);
   });
   const unansweredCreate = vi.fn().mockResolvedValue({ id: 'u1' });
+  const anchorRows = options.anchorRows ?? [];
   const prisma = {
     $queryRaw: queryRaw,
     unansweredQuery: { create: unansweredCreate },
+    product: {
+      findMany: vi.fn().mockResolvedValue(
+        anchorRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          specs: row.specs,
+          category: { slug: row.categorySlug },
+        })),
+      ),
+    },
   } as unknown as PrismaService;
 
   const historyMessages = options.historyMessages ?? [];
@@ -164,7 +180,7 @@ function buildService(options: {
         role: message.role,
         content: message.content,
         citations: [],
-        products: [],
+        products: message.products ?? [],
         createdAt: new Date(),
       })),
     }),
@@ -342,6 +358,114 @@ describe('RecommendService.recommend (unit, mocked database)', () => {
         productId: null,
         sessionId: SESSION_ID,
         reason: 'multi_category',
+      },
+    });
+  });
+
+  it('excludes LGA1700 CPUs when the session anchor is an AM5 board', async () => {
+    const boardId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const lgaRow = candidateRow({
+      id: CANDIDATE_A,
+      name: 'Intel Core i7 12700F',
+      specs: { socket: 'LGA1700', cores: 12 },
+      categorySlug: 'cpus',
+    });
+    const am5Row = candidateRow({
+      id: CANDIDATE_B,
+      name: 'AMD Ryzen 5 7600',
+      specs: { socket: 'AM5', cores: 6 },
+      categorySlug: 'cpus',
+    });
+    const { service, llm, unansweredCreate } = buildService({
+      candidateRows: [lgaRow, am5Row],
+      intent: laptopIntent({
+        categorySlug: 'cpus',
+        maxPrice: { amount: 800_00, currency: 'USD' },
+        useCases: ['armar pc'],
+        missingInfo: [],
+      }),
+      hits: [],
+      historyMessages: [
+        {
+          role: 'ASSISTANT',
+          content: 'MSI Pro B650M',
+          products: [{ productId: boardId, name: 'MSI Pro B650M', slug: 'msi-b650m' }],
+        },
+      ],
+      anchorRows: [
+        {
+          id: boardId,
+          name: 'MSI Pro B650M',
+          categorySlug: 'motherboards',
+          specs: { socket: 'AM5', ram_type: 'DDR5', ram_slots: 2, m2_slots: 1, sata_ports: 4 },
+        },
+      ],
+      llmTexts: [
+        draftJson('Compatible [1].', [{ productId: CANDIDATE_B, reason: 'AM5 compatible' }]),
+      ],
+    });
+
+    const response = await service.recommend(SESSION_ID, OWNER, {
+      content: 'procesador compatible con mi placa, max 800 USD',
+      locale: 'es',
+    });
+
+    expect(response.products.map((card) => card.productId)).toEqual([CANDIDATE_B]);
+    expect(response.products.map((card) => card.productId)).not.toContain(CANDIDATE_A);
+    expect(llm.calls).toHaveLength(1);
+    expect(unansweredCreate).not.toHaveBeenCalled();
+  });
+
+  it('answers incompatibly instead of mixing when every candidate conflicts with anchors', async () => {
+    const boardId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const { service, seenSql, llm, unansweredCreate } = buildService({
+      candidateRows: [
+        candidateRow({
+          id: CANDIDATE_A,
+          name: 'Intel Core i7 12700F',
+          specs: { socket: 'LGA1700' },
+          categorySlug: 'cpus',
+        }),
+      ],
+      intent: laptopIntent({
+        categorySlug: 'cpus',
+        maxPrice: { amount: 800_00, currency: 'USD' },
+        useCases: ['armar pc'],
+        missingInfo: [],
+      }),
+      historyMessages: [
+        {
+          role: 'ASSISTANT',
+          content: 'MSI Pro B650M',
+          products: [{ productId: boardId, name: 'MSI Pro B650M', slug: 'msi-b650m' }],
+        },
+      ],
+      anchorRows: [
+        {
+          id: boardId,
+          name: 'MSI Pro B650M',
+          categorySlug: 'motherboards',
+          specs: { socket: 'AM5', ram_type: 'DDR5', ram_slots: 2, m2_slots: 1, sata_ports: 4 },
+        },
+      ],
+    });
+
+    const response = await service.recommend(SESSION_ID, OWNER, {
+      content: 'procesador compatible, max 800 USD',
+      locale: 'es',
+    });
+
+    expect(response.products).toEqual([]);
+    expect(response.message).toContain('no son compatibles');
+    expect(response.message).toContain('MSI Pro B650M');
+    expect(seenSql.length).toBeGreaterThanOrEqual(1);
+    expect(llm.calls).toHaveLength(0);
+    expect(unansweredCreate).toHaveBeenCalledWith({
+      data: {
+        query: 'procesador compatible, max 800 USD',
+        productId: null,
+        sessionId: SESSION_ID,
+        reason: 'incompatible_anchors',
       },
     });
   });
@@ -621,6 +745,77 @@ describe('keepValidItems', () => {
     );
 
     expect(items.map((item) => item.productId)).toEqual([CANDIDATE_A]);
+  });
+});
+
+describe('compatibility-aware recommendation (ADR 0076)', () => {
+  const board = {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    name: 'MSI Pro B650M',
+    categorySlug: 'motherboards',
+    specs: { socket: 'AM5', ram_type: 'DDR5' },
+  };
+
+  function cpuCandidate(
+    id: string,
+    name: string,
+    specs: Record<string, unknown>,
+  ): RecommendCandidate {
+    return {
+      id,
+      name,
+      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      specs,
+      brandName: 'TestBrand',
+      categorySlug: 'cpus',
+      priceAmount: 400_00,
+      currency: 'USD',
+      available: 5,
+      imageUrl: null,
+      score: 1,
+    };
+  }
+
+  it('extracts anchor ids from stored assistant products, deduped and capped', () => {
+    expect(
+      extractAnchorIds({
+        messages: [
+          { products: [{ productId: 'a' }] },
+          { products: [{ productId: 'a' }, { productId: 'b' }, { productId: '' }] },
+          { products: 'not-an-array' },
+          {},
+        ],
+      }),
+    ).toEqual(['a', 'b']);
+  });
+
+  it('keeps warnings but drops error-level mismatches (LGA1700 vs AM5)', () => {
+    const lga = cpuCandidate(CANDIDATE_A, 'Intel i7 12700F', { socket: 'LGA1700' });
+    const am5 = cpuCandidate(CANDIDATE_B, 'AMD Ryzen 5 7600', { socket: 'AM5' });
+
+    expect(filterCompatibleCandidates([lga, am5], [board], 'es').map((row) => row.id)).toEqual([
+      CANDIDATE_B,
+    ]);
+    expect(filterCompatibleCandidates([lga, am5], [], 'es')).toHaveLength(2);
+  });
+
+  it('maps candidates to engine products without loss', () => {
+    const row = cpuCandidate(CANDIDATE_A, 'Intel i7 12700F', { socket: 'LGA1700' });
+    expect(toCompatibilityProduct(row)).toMatchObject({
+      id: CANDIDATE_A,
+      categorySlug: 'cpus',
+      specs: { socket: 'LGA1700' },
+    });
+  });
+
+  it('explains incompatible anchors naming the base (es/en)', () => {
+    const es = buildIncompatibleAnchorsMessage([board], [{ name: 'Intel' }], 'es');
+    const en = buildIncompatibleAnchorsMessage([board], [{ name: 'Intel' }], 'en');
+
+    expect(es).toContain('no son compatibles');
+    expect(es).toContain('MSI Pro B650M');
+    expect(en).toContain('not compatible');
+    expect(en).toContain('MSI Pro B650M');
   });
 });
 

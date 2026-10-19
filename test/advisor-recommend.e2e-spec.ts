@@ -423,6 +423,115 @@ describe('Advisor recommendations (e2e)', () => {
     }
   });
 
+  it('filters LGA1700 CPUs when the session anchor is an AM5 board (two turns)', async () => {
+    const client = prisma as unknown as PrismaClient;
+    const { agent, sessionId } = await createGuestSession();
+    const tag = `compat-${suffix}-${String(Math.floor(Math.random() * 1_000_000))}`;
+    const brand = await client.brand.create({
+      data: { name: `E2E Compat Brand ${tag}`, slug: `e2e-compat-brand-${tag}` },
+    });
+    const motherboards =
+      (await client.category.findUnique({ where: { slug: 'motherboards' } })) ??
+      (await client.category.create({ data: { name: 'Motherboards', slug: 'motherboards' } }));
+    const cpus =
+      (await client.category.findUnique({ where: { slug: 'cpus' } })) ??
+      (await client.category.create({ data: { name: 'CPUs', slug: 'cpus' } }));
+    const board = await client.product.create({
+      data: {
+        sku: `E2E-COMPAT-BOARD-${tag}`.toUpperCase(),
+        name: `E2E Compat Board AM5 ${tag}`,
+        slug: `e2e-compat-board-${tag}`,
+        description: 'AM5 board fixture.',
+        brandId: brand.id,
+        categoryId: motherboards.id,
+        priceAmount: 150_00,
+        currency: 'USD',
+        status: 'ACTIVE',
+        specs: { socket: 'AM5', ram_type: 'DDR5', ram_slots: 2, m2_slots: 1, sata_ports: 4 },
+      },
+    });
+    await client.inventory.create({ data: { productId: board.id, stock: 5, reserved: 0 } });
+    const intel = await client.product.create({
+      data: {
+        sku: `E2E-COMPAT-INTEL-${tag}`.toUpperCase(),
+        name: `E2E Compat Intel LGA1700 ${tag}`,
+        slug: `e2e-compat-intel-${tag}`,
+        description: 'LGA1700 cpu fixture.',
+        brandId: brand.id,
+        categoryId: cpus.id,
+        priceAmount: 400_00,
+        currency: 'USD',
+        status: 'ACTIVE',
+        specs: { socket: 'LGA1700', cores: 12, tdp_w: 65 },
+      },
+    });
+    await client.inventory.create({ data: { productId: intel.id, stock: 5, reserved: 0 } });
+    const amd = await client.product.create({
+      data: {
+        sku: `E2E-COMPAT-AMD-${tag}`.toUpperCase(),
+        name: `E2E Compat AMD AM5 ${tag}`,
+        slug: `e2e-compat-amd-${tag}`,
+        description: 'AM5 cpu fixture.',
+        brandId: brand.id,
+        categoryId: cpus.id,
+        priceAmount: 400_00,
+        currency: 'USD',
+        status: 'ACTIVE',
+        specs: { socket: 'AM5', cores: 6, tdp_w: 65 },
+      },
+    });
+    await client.inventory.create({ data: { productId: amd.id, stock: 5, reserved: 0 } });
+    productIds[`compat-board-${tag}`] = board.id;
+    productIds[`compat-intel-${tag}`] = intel.id;
+    productIds[`compat-amd-${tag}`] = amd.id;
+
+    llm.enqueueTexts([
+      intentJson({
+        categorySlug: 'motherboards',
+        maxPrice: { amount: 800_00, currency: 'USD' },
+        useCases: ['armar pc'],
+        missingInfo: [],
+      }),
+      JSON.stringify({
+        text: 'Placa compatible con tu armado.',
+        items: [{ productId: board.id, reason: 'AM5 base', citations: [] }],
+      }),
+      intentJson({
+        categorySlug: 'cpus',
+        maxPrice: { amount: 800_00, currency: 'USD' },
+        useCases: ['armar pc'],
+        missingInfo: [],
+      }),
+      JSON.stringify({
+        text: 'CPU compatible con tu placa AM5.',
+        items: [{ productId: amd.id, reason: 'AM5 compatible', citations: [] }],
+      }),
+    ]);
+
+    const first = await agent
+      .post(`/api/v1/advisor/sessions/${sessionId}/messages`)
+      .send({ content: 'placa base AM5 para armar pc, max 800 USD', locale: 'es' })
+      .expect(200);
+    expect((first.body as RecommendBody).products.map((card) => card.productId)).toContain(
+      board.id,
+    );
+
+    const second = await agent
+      .post(`/api/v1/advisor/sessions/${sessionId}/messages`)
+      .send({ content: 'procesador compatible con mi placa, max 800 USD', locale: 'es' })
+      .expect(200);
+    const secondBody = second.body as RecommendBody;
+    const ids = secondBody.products.map((card) => card.productId);
+    expect(ids).toContain(amd.id);
+    expect(ids).not.toContain(intel.id);
+
+    await client.inventory.deleteMany({
+      where: { productId: { in: [board.id, intel.id, amd.id] } },
+    });
+    await client.product.deleteMany({ where: { id: { in: [board.id, intel.id, amd.id] } } });
+    await client.brand.deleteMany({ where: { id: brand.id } });
+  });
+
   it('explains which constraint to relax when nothing matches the budget', async () => {
     const { agent, sessionId } = await createGuestSession();
     llm.enqueueTexts([intentJson()]);

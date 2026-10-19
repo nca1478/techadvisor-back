@@ -16,6 +16,9 @@ import { generateJson, LlmJsonError } from '../../ai/common/generate-json.js';
 import type { LlmMessage, LlmProvider } from '../../ai/interfaces/llm-provider.interface.js';
 import { LLM_PROVIDER } from '../../ai/interfaces/llm-provider.interface.js';
 import { resolveLocale } from '../../catalog/catalog.service.js';
+import { resolveCompatibilityLocale } from '../../compatibility/rules/messages.js';
+import { checkCompatibility } from '../../compatibility/rules/rules.js';
+import type { CompatibilityProduct } from '../../compatibility/rules/compatibility.types.js';
 import { toAvailability } from '../../inventory/inventory.service.js';
 import { RetrievalService, type RetrievalHit } from '../../retrieval/retrieval.service.js';
 import { buildCitations } from '../citations.js';
@@ -158,6 +161,100 @@ export function keepValidItems(
   return items.filter((item) => candidateIds.has(item.productId));
 }
 
+/** Max session anchors hydrated for the compatibility check (bounded, deterministic). */
+export const RECOMMEND_MAX_ANCHORS = 10;
+
+/**
+ * Extracts product ids already recommended in this session (stored `products`
+ * on history messages). Tolerates legacy/foreign shapes: only string
+ * `productId` values survive, deduped in first-seen order, capped. Pure.
+ */
+export function extractAnchorIds(history: { messages: Array<{ products?: unknown }> }): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const message of history.messages) {
+    const products = message.products;
+    if (!Array.isArray(products)) {
+      continue;
+    }
+    for (const entry of products) {
+      if (ids.length >= RECOMMEND_MAX_ANCHORS) {
+        return ids;
+      }
+      const id =
+        typeof entry === 'object' && entry !== null && 'productId' in entry
+          ? (entry as { productId?: unknown }).productId
+          : undefined;
+      if (typeof id === 'string' && id.trim().length > 0 && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+  return ids;
+}
+
+/** Candidate in the minimal shape the compatibility engine needs. Pure. */
+export function toCompatibilityProduct(
+  candidate: Pick<RecommendCandidate, 'id' | 'name' | 'categorySlug' | 'specs'>,
+): CompatibilityProduct {
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    categorySlug: candidate.categorySlug,
+    specs: candidate.specs,
+  };
+}
+
+/**
+ * Keeps only candidates with no ERROR against the session anchors (ADR 0076).
+ * Warnings (missing data) never exclude. Empty anchors → all candidates
+ * pass through. Pure, unit-testable.
+ */
+export function filterCompatibleCandidates(
+  candidates: readonly RecommendCandidate[],
+  anchors: readonly CompatibilityProduct[],
+  locale: string,
+): RecommendCandidate[] {
+  if (anchors.length === 0) {
+    return [...candidates];
+  }
+  const compatLocale = resolveCompatibilityLocale(locale);
+  return candidates.filter((candidate) => {
+    const result = checkCompatibility(
+      [...anchors, toCompatibilityProduct(candidate)],
+      compatLocale,
+    );
+    return !result.issues.some((issue) => issue.severity === 'error');
+  });
+}
+
+/**
+ * Deterministic message when every candidate conflicts with the session
+ * anchors (e.g. all LGA1700 CPUs against an AM5 board). Names the anchors
+ * so the user can restart from a compatible base. Pure, unit-testable.
+ */
+export function buildIncompatibleAnchorsMessage(
+  anchors: readonly CompatibilityProduct[],
+  excluded: readonly { name: string }[],
+  locale: string,
+): string {
+  const spanish = locale.toLowerCase().startsWith('es');
+  const names = anchors.map((anchor) => anchor.name).join(', ');
+  if (spanish) {
+    return (
+      `Las opciones disponibles no son compatibles con tu selección actual (${names}). ` +
+      `Se descartaron ${String(excluded.length)} por socket, tipo de RAM u otra regla de compatibilidad. ` +
+      `Elige una base compatible (misma plataforma) o inicia una nueva conversación para otro equipo.`
+    );
+  }
+  return (
+    `The available options are not compatible with your current picks (${names}). ` +
+    `Discarded ${String(excluded.length)} over socket, RAM type or another compatibility rule. ` +
+    `Pick a compatible base (same platform) or start a new conversation for another build.`
+  );
+}
+
 /**
  * Buying-advisor recommendation (see ADR 0032): the LLM redacts a
  * recommendation over a CLOSED SQL candidate set — it never chooses products,
@@ -279,25 +376,38 @@ export class RecommendService {
       );
     }
 
+    // Compatibility-aware filtering (see ADR 0076): candidates that are an
+    // ERROR against products already recommended in this session are
+    // excluded BEFORE drafting, so the LLM closed set can never mix e.g. an
+    // LGA1700 CPU with an AM5 board. Warnings (missing data) never exclude.
+    const anchors = await this.loadAnchorProducts(history);
+    const compatibleRows = filterCompatibleCandidates(rows, anchors, locale);
+    if (compatibleRows.length === 0 && anchors.length > 0) {
+      return this.answerIncompatibleAnchors(sessionId, owner, input.content, anchors, rows, locale);
+    }
+    const effectiveRows = anchors.length > 0 ? compatibleRows : rows;
+
     const evidence = await this.retrieveEvidence(
       [input.content, ...purchaseIntent.useCases].join('\n'),
-      new Set(rows.map((row) => row.id)),
+      new Set(effectiveRows.map((row) => row.id)),
       locale,
     );
 
     const cards = await this.draftRecommendations(
       input.content,
       purchaseIntent.useCases,
-      rows,
+      effectiveRows,
       evidence,
       locale,
     );
     const message =
-      cards.kind === 'llm' ? cards.draft.text : buildDeterministicMessage(rows, locale).text;
+      cards.kind === 'llm'
+        ? cards.draft.text
+        : buildDeterministicMessage(effectiveRows, locale).text;
     const products =
       cards.kind === 'llm'
-        ? this.hydrateCards(rows, cards.items, evidence)
-        : this.hydrateDeterministic(rows, evidence);
+        ? this.hydrateCards(effectiveRows, cards.items, evidence)
+        : this.hydrateDeterministic(effectiveRows, evidence);
 
     await this.chatSessions.addMessage(sessionId, owner, {
       role: 'ASSISTANT',
@@ -308,7 +418,7 @@ export class RecommendService {
 
     // Metadata only: never the prompt, the question or the answer.
     this.logger.debug(
-      `advisor recommend: candidates=${String(rows.length)} products=${String(products.length)} kind=${cards.kind} provider=${this.llm.providerName}`,
+      `advisor recommend: candidates=${String(rows.length)} compatible=${String(effectiveRows.length)} anchors=${String(anchors.length)} products=${String(products.length)} kind=${cards.kind} provider=${this.llm.providerName}`,
     );
     return { message, products };
   }
@@ -370,6 +480,55 @@ export class RecommendService {
     });
     this.logger.debug(
       `advisor recommend: multi-category guidance mentioned=${mentioned.join(',')}`,
+    );
+    return { message, products: [] };
+  }
+
+  /**
+   * Session anchors for compatibility filtering: product ids already
+   * recommended in this session (stored `products` on ASSISTANT turns),
+   * hydrated from SQL with category + specs for the ADR 0034 engine.
+   * Missing/archived ids are ignored; capped to keep the check bounded.
+   */
+  private async loadAnchorProducts(history: {
+    messages: Array<{ products?: unknown }>;
+  }): Promise<CompatibilityProduct[]> {
+    const ids = extractAnchorIds(history);
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.product.findMany({
+      where: { id: { in: ids }, status: 'ACTIVE' },
+      include: { category: { select: { slug: true } } },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      categorySlug: row.category.slug,
+      specs: (row.specs ?? {}) as Record<string, unknown>,
+    }));
+  }
+
+  private async answerIncompatibleAnchors(
+    sessionId: string,
+    owner: ChatSessionOwner,
+    question: string,
+    anchors: readonly CompatibilityProduct[],
+    excluded: readonly RecommendCandidate[],
+    locale: string,
+  ): Promise<RecommendResponse> {
+    const message = buildIncompatibleAnchorsMessage(anchors, excluded, locale);
+    await this.prisma.unansweredQuery.create({
+      data: { query: question, productId: null, sessionId, reason: 'incompatible_anchors' },
+    });
+    await this.chatSessions.addMessage(sessionId, owner, {
+      role: 'ASSISTANT',
+      content: message,
+      citations: [],
+      products: [],
+    });
+    this.logger.debug(
+      `advisor recommend: incompatible anchors=${anchors.map((anchor) => anchor.id).join(',')} excluded=${String(excluded.length)}`,
     );
     return { message, products: [] };
   }
