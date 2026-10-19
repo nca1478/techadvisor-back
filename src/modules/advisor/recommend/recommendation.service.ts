@@ -23,7 +23,9 @@ import type { ProductQaCitationDto } from '../dto/advisor.dto.js';
 import { ChatSessionsService, type ChatSessionOwner } from '../chat-sessions.service.js';
 import {
   buildClarificationQuestion,
+  buildMultiCategoryMessage,
   buildUnknownCategoryMessage,
+  detectMentionedCategories,
   IntentService,
   isCategoryClarification,
 } from '../intent/intent.service.js';
@@ -231,6 +233,17 @@ export class RecommendService {
     }
 
     if (purchaseIntent.categorySlug === undefined) {
+      // Multi-category (bundle / PC build) requests mention >= 2 known
+      // categories, which the single-`categorySlug` intent model cannot
+      // represent. Answer with one-at-a-time guidance instead of the
+      // `unknown_category` terminal text (see ADR 0075): those categories
+      // DO exist, the advisor just handles them one by one.
+      const mentioned = detectMentionedCategories(
+        turns.filter((turn) => turn.role === 'user').map((turn) => turn.content),
+      );
+      if (mentioned.length >= 2) {
+        return this.answerMultiCategory(sessionId, owner, input.content, mentioned, locale);
+      }
       // No known category (e.g. headphones: the catalog has no such
       // category, so extraction can never resolve it). Ask once; when the
       // follow-up still resolves nothing, answer terminally instead of
@@ -335,6 +348,29 @@ export class RecommendService {
       products: [],
     });
     this.logger.debug('advisor recommend: unknown category, answered terminally');
+    return { message, products: [] };
+  }
+
+  private async answerMultiCategory(
+    sessionId: string,
+    owner: ChatSessionOwner,
+    question: string,
+    mentioned: readonly string[],
+    locale: string,
+  ): Promise<RecommendResponse> {
+    const message = buildMultiCategoryMessage(locale, mentioned);
+    await this.prisma.unansweredQuery.create({
+      data: { query: question, productId: null, sessionId, reason: 'multi_category' },
+    });
+    await this.chatSessions.addMessage(sessionId, owner, {
+      role: 'ASSISTANT',
+      content: message,
+      citations: [],
+      products: [],
+    });
+    this.logger.debug(
+      `advisor recommend: multi-category guidance mentioned=${mentioned.join(',')}`,
+    );
     return { message, products: [] };
   }
 

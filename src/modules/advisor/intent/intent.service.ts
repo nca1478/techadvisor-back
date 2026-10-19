@@ -229,6 +229,91 @@ export function buildUnknownCategoryMessage(locale: string): string {
     : `It looks like you are looking for a product type outside my catalog. I cover: ${list}. Are you interested in any of them?`;
 }
 
+/**
+ * Deterministic synonyms per category slug (Spanish + English). Used only
+ * to detect a MULTI-category request (e.g. "tarjeta madre, procesador,
+ * memoria...") that the single-`categorySlug` intent model cannot represent.
+ * Matching is accent- and case-insensitive; short tokens use word
+ * boundaries to avoid false positives (e.g. "ram" inside "programa").
+ */
+const CATEGORY_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
+  laptops: ['laptop', 'portatil', 'notebook'],
+  cpus: ['procesador', 'cpu', 'ryzen'],
+  motherboards: ['tarjeta madre', 'placa base', 'placa madre', 'motherboard', 'mainboard'],
+  ram: ['memoria ram', 'memoria', 'ram', 'ddr4', 'ddr5', 'dimm'],
+  gpus: [
+    'tarjeta grafica',
+    'tarjeta de video',
+    'grafica',
+    'gpu',
+    'geforce',
+    'radeon',
+    'rtx',
+    'gtx',
+  ],
+  storage: ['disco duro', 'disco solido', 'almacenamiento', 'ssd', 'hdd', 'nvme', 'm.2'],
+  psus: ['fuente de poder', 'fuente de alimentacion', 'fuente', 'psu'],
+  monitors: ['monitor', 'pantalla'],
+};
+
+function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function synonymMatches(normalizedText: string, synonym: string): boolean {
+  const normalizedSyn = normalizeForMatch(synonym);
+  // Short tokens (<=3 chars) require word boundaries; longer ones match
+  // as substrings so "tarjeta madre" and "procesadores" both hit.
+  if (normalizedSyn.length <= 3) {
+    return new RegExp(`\\b${normalizedSyn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(
+      normalizedText,
+    );
+  }
+  return normalizedText.includes(normalizedSyn);
+}
+
+/**
+ * Returns the known category slugs mentioned in the given user texts, in
+ * `KNOWN_CATEGORY_DISPLAY` order. Pure, unit-testable. Returns `[]` when
+ * nothing matches; callers treat `>= 2` as a multi-category (bundle/build)
+ * request the single-category intent model cannot represent.
+ */
+export function detectMentionedCategories(texts: readonly string[] | string): string[] {
+  const combined = typeof texts === 'string' ? texts : texts.join('\n');
+  const normalized = normalizeForMatch(combined);
+  const found: string[] = [];
+  for (const entry of KNOWN_CATEGORY_DISPLAY) {
+    const synonyms = CATEGORY_SYNONYMS[entry.slug] ?? [];
+    if (synonyms.some((synonym) => synonymMatches(normalized, synonym))) {
+      found.push(entry.slug);
+    }
+  }
+  return found;
+}
+
+/**
+ * Guidance answer for a multi-category request (bundle / PC build). Names
+ * the detected categories and asks for ONE category plus budget/use, since
+ * the advisor recommends one category at a time. Stable across turns (same
+ * input → same message) so it never degrades into the `unknown_category`
+ * terminal text. Pure, unit-testable.
+ */
+export function buildMultiCategoryMessage(locale: string, slugs: readonly string[]): string {
+  const spanish = locale.toLowerCase().startsWith('es');
+  const namesBySlug = new Map(KNOWN_CATEGORY_DISPLAY.map((entry) => [entry.slug, entry]));
+  const detected = slugs
+    .map((slug) => namesBySlug.get(slug))
+    .filter((entry) => entry !== undefined)
+    .map((entry) => (spanish ? entry.es : entry.en));
+  const detail = detected.length > 0 ? ` (${detected.join(', ')})` : '';
+  return spanish
+    ? `Puedo ayudarte con una categoría a la vez. Detecté varias en tu mensaje${detail}. Elige una para empezar e indícame tu presupuesto máximo y su uso principal; luego repetimos con la siguiente.`
+    : `I can help with one category at a time. I detected several in your message${detail}. Pick one to start with and tell me your maximum budget and its main use; then we repeat for the next one.`;
+}
+
 export function buildClarificationQuestion(intent: PurchaseIntent, locale: string): string | null {
   if (intent.missingInfo.length === 0) {
     return null;

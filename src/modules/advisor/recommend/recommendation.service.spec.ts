@@ -310,6 +310,42 @@ describe('RecommendService.recommend (unit, mocked database)', () => {
     });
   });
 
+  it('answers multi-category bundles with one-at-a-time guidance, not unknown_category', async () => {
+    const { service, seenSql, llm, unansweredCreate } = buildService({
+      intent: laptopIntent({
+        categorySlug: undefined,
+        maxPrice: undefined,
+        minPrice: undefined,
+        useCases: [],
+        missingInfo: ['budget', 'use', 'category'],
+      }),
+      historyMessages: [
+        { role: 'USER', content: 'necesito compras piezas para mi computadora' },
+        { role: 'ASSISTANT', content: CATEGORY_CLARIFICATION_ES },
+      ],
+    });
+
+    const response = await service.recommend(SESSION_ID, OWNER, {
+      content: 'tarjeta madre, procesador, memoria, disco duro y fuente de poder, todo compatible',
+      locale: 'es',
+    });
+
+    expect(response.products).toEqual([]);
+    expect(response.clarifyingQuestion).toBeUndefined();
+    expect(response.message).toContain('una categoría a la vez');
+    expect(response.message).not.toContain('no está en mi catálogo');
+    expect(seenSql).toHaveLength(0);
+    expect(llm.calls).toHaveLength(0);
+    expect(unansweredCreate).toHaveBeenCalledWith({
+      data: {
+        query: 'tarjeta madre, procesador, memoria, disco duro y fuente de poder, todo compatible',
+        productId: null,
+        sessionId: SESSION_ID,
+        reason: 'multi_category',
+      },
+    });
+  });
+
   it('explains which constraint to relax when no candidates match (strict budget)', async () => {
     const { service, seenSql, unansweredCreate } = buildService({
       candidateRows: (query) =>

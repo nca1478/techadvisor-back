@@ -4,8 +4,10 @@ import { FakeLlmAdapter } from '../../ai/adapters/fake-llm.adapter.js';
 import { LlmJsonError } from '../../ai/common/generate-json.js';
 import {
   buildClarificationQuestion,
+  buildMultiCategoryMessage,
   buildUnknownCategoryMessage,
   completeMissingInfo,
+  detectMentionedCategories,
   IntentService,
   isCategoryClarification,
   sanitizeIntent,
@@ -304,6 +306,42 @@ describe('buildUnknownCategoryMessage', () => {
     expect(en).toContain('laptops');
     expect(en).toContain('monitors');
     expect(en).not.toContain('Which kind of product');
+  });
+});
+
+describe('detectMentionedCategories', () => {
+  it('detects the reported 5-category bundle (es with accents)', () => {
+    const found = detectMentionedCategories([
+      'tarjeta madre, procesador, memoria, disco duro y fuente de poder, todo compatible',
+    ]);
+
+    expect(found).toEqual(
+      expect.arrayContaining(['motherboards', 'cpus', 'ram', 'storage', 'psus']),
+    );
+    expect(found.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('returns a single category for single-product requests', () => {
+    expect(detectMentionedCategories(['busco audifonos con cable'])).toEqual([]);
+    expect(detectMentionedCategories(['quiero un portatil para estudiar'])).toEqual(['laptops']);
+  });
+
+  it('does not match "ram" inside "programa"', () => {
+    expect(detectMentionedCategories(['programa de estudios'])).toEqual([]);
+  });
+});
+
+describe('buildMultiCategoryMessage', () => {
+  it('asks for one category plus budget instead of unknown-category text (es/en)', () => {
+    const es = buildMultiCategoryMessage('es', ['motherboards', 'cpus', 'ram']);
+    const en = buildMultiCategoryMessage('en', ['motherboards', 'cpus']);
+
+    expect(es).toContain('una categoría a la vez');
+    expect(es).toContain('presupuesto');
+    expect(es).not.toContain('no está en mi catálogo');
+    expect(en).toContain('one category at a time');
+    expect(en).toContain('budget');
+    expect(en).not.toContain('outside my catalog');
   });
 });
 
