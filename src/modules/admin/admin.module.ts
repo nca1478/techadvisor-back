@@ -17,9 +17,10 @@ import { DocumentStorageService } from './documents/document-storage.service.js'
  * global but stock adjustments live here because they must append the
  * `InventoryMovement` audit row in the same transaction.
  *
- * Corpus documents (P2.5, see ADR 0020) live here too: the
- * `AdminDocumentsController` under `/admin/documents` plus the local-disk
- * `DocumentStorageService`, backed by `IngestionModule` for the pipeline.
+ * Corpus documents (P2.5, see ADRs 0020/0071) live here too: the
+ * `AdminDocumentsController` under `/admin/documents` plus the dual-driver
+ * `DocumentStorageService` (local disk in development, Supabase Storage in
+ * production), backed by `IngestionModule` for the pipeline.
  *
  * The advisor improvement loop (Fase 7, P7.3 — see ADR 0040) lives under
  * `/admin/advisor`: abstention triage (`NEW` → `IN_REVIEW` → `RESOLVED`),

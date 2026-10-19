@@ -256,6 +256,26 @@ const envSchema = z
     // (`MAX_JOB_BYTES` in ingestion.constants.ts) — a larger file could
     // never be queued, so it is rejected at the edge instead.
     DOCUMENTS_DIR: z.string().min(1).default('./storage/documents'),
+    DOCUMENTS_DRIVER: z
+      .enum(['local', 'supabase'], {
+        error: 'DOCUMENTS_DRIVER must be one of: local, supabase',
+      })
+      .default('local'),
+    // Supabase Storage backend for admin-uploaded sources (see ADR 0071).
+    // Only used when DOCUMENTS_DRIVER=supabase (production). The service
+    // role key never leaves the server; the bucket stays private.
+    SUPABASE_URL: z.preprocess(
+      emptyToUndefined,
+      z
+        .url({ error: 'SUPABASE_URL must be a valid URL (e.g. https://xyz.supabase.co)' })
+        .optional(),
+    ),
+    SUPABASE_SERVICE_ROLE_KEY: z.preprocess(
+      emptyToUndefined,
+      z.string().min(1, { error: 'SUPABASE_SERVICE_ROLE_KEY must be a non-empty key' }).optional(),
+    ),
+    SUPABASE_STORAGE_BUCKET: z.string().min(1).max(63).default('documents'),
+    SUPABASE_STORAGE_PREFIX: z.string().max(256).default('storage/documents'),
     DOCUMENTS_MAX_BYTES: z.coerce
       .number()
       .int()
@@ -310,6 +330,16 @@ const envSchema = z
     {
       error: 'LLM_BASE_URL is required when LLM_PROVIDER is openai-compatible or openai-responses',
       path: ['LLM_BASE_URL'],
+    },
+  )
+  .refine(
+    (env) =>
+      env.DOCUMENTS_DRIVER === 'local' ||
+      (env.SUPABASE_URL !== undefined && env.SUPABASE_SERVICE_ROLE_KEY !== undefined),
+    {
+      error:
+        'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when DOCUMENTS_DRIVER is supabase',
+      path: ['SUPABASE_URL'],
     },
   );
 

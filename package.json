@@ -47,6 +47,7 @@
     "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@supabase/supabase-js": "2.118.0",
     "argon2": "^0.45.1",
     "bullmq": "^6.3.11",
     "cheerio": "^1.2.0",
