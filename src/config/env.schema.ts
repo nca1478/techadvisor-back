@@ -298,6 +298,19 @@ const envSchema = z
     AI_COST_LLM_INPUT_PER_1K: z.coerce.number().min(0).max(1000).default(0),
     AI_COST_LLM_OUTPUT_PER_1K: z.coerce.number().min(0).max(1000).default(0),
     AI_COST_EMBEDDING_PER_1K: z.coerce.number().min(0).max(1000).default(0),
+    // Production database keep-alive (see ADR 0072): periodic `SELECT 1`
+    // against Supabase so the free tier never pauses on inactivity.
+    // Disabled by default because the local database never sleeps.
+    KEEPALIVE_ENABLED: z
+      .preprocess(
+        (value) =>
+          typeof value === 'string'
+            ? value.trim().toLowerCase() === 'true' || value.trim() === '1'
+            : value,
+        z.boolean(),
+      )
+      .default(false),
+    KEEPALIVE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',

@@ -334,4 +334,31 @@ describe('parseEnv', () => {
       }),
     ).toThrow(/LLM_BASE_URL/);
   });
+
+  it('disables the database keep-alive by default (local DB never sleeps)', () => {
+    const config = parseEnv({ ...VALID_ENV });
+
+    expect(config.KEEPALIVE_ENABLED).toBe(false);
+    expect(config.KEEPALIVE_INTERVAL_MINUTES).toBe(60);
+  });
+
+  it('enables the keep-alive for production Supabase (ADR 0072)', () => {
+    const config = parseEnv({
+      ...VALID_ENV,
+      KEEPALIVE_ENABLED: 'true',
+      KEEPALIVE_INTERVAL_MINUTES: '10',
+    });
+
+    expect(config.KEEPALIVE_ENABLED).toBe(true);
+    expect(config.KEEPALIVE_INTERVAL_MINUTES).toBe(10);
+  });
+
+  it('rejects an out-of-range keep-alive interval', () => {
+    expect(() => parseEnv({ ...VALID_ENV, KEEPALIVE_INTERVAL_MINUTES: '0' })).toThrow(
+      /KEEPALIVE_INTERVAL_MINUTES/,
+    );
+    expect(() => parseEnv({ ...VALID_ENV, KEEPALIVE_INTERVAL_MINUTES: '2000' })).toThrow(
+      /KEEPALIVE_INTERVAL_MINUTES/,
+    );
+  });
 });

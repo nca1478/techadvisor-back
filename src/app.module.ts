@@ -19,6 +19,7 @@ import { RetrievalModule } from './modules/retrieval/retrieval.module.js';
 import { SearchModule } from './modules/search/search.module.js';
 import { AdvisorModule } from './modules/advisor/advisor.module.js';
 import { CompatibilityModule } from './modules/compatibility/compatibility.module.js';
+import { KeepAliveModule } from './modules/keepalive/keepalive.module.js';
 import { ReviewsModule } from './modules/reviews/reviews.module.js';
 import { ObservabilityModule } from './modules/observability/observability.module.js';
 
@@ -43,6 +44,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
     SearchModule,
     AdvisorModule,
     CompatibilityModule,
+    KeepAliveModule,
     ReviewsModule,
     ObservabilityModule,
   ],
