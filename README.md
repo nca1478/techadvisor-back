@@ -40,6 +40,23 @@ docker compose down           # detiene la infraestructura (conserva los volúme
 docker compose down -v        # detiene Y borra los volúmenes (arranque limpio)
 ```
 
+## Despliegue en Render (tier free)
+
+Un solo Web Service free (`techadvisor-back`) con API + worker de ingesta en
+el mismo contenedor vía `npm run start:free` (ver ADRs `0066`, `0067`, `0070`).
+El Blueprint versionado es `render.yaml`. El Dashboard debe usar exactamente:
+
+- Build: `npm ci && npx prisma generate && npm run build`
+- Pre-deploy: `npx prisma migrate deploy`
+- Start: `npm run start:free`
+- Health check: `/api/v1/health`
+
+`npm run db:setup` es solo para desarrollo local: los seeds se niegan con
+`NODE_ENV=production` y migrar dentro del build rompió un deploy con P3018
+(`type "Role" already exists`). Si `migrate deploy` reporta migraciones ya
+aplicadas en la BD pero no registradas, resolver una vez con
+`npx prisma migrate resolve --applied "<nombre>"` y reintentar el deploy.
+
 ## Base de datos (Prisma)
 
 ```bash
