@@ -63,6 +63,7 @@ function buildService(options: {
   rows?: ReturnType<typeof productRow>[];
   lexicalRows?: ReturnType<typeof productRow>[];
   embedError?: Error;
+  stock?: Map<string, number>;
 }) {
   const searchMock = options.embedError
     ? vi.fn().mockRejectedValue(options.embedError)
@@ -75,9 +76,15 @@ function buildService(options: {
   const findManyCalls: unknown[] = [];
   const prisma = {
     product: {
-      findMany: vi
-        .fn()
-        .mockImplementation((args?: { where?: { id?: { in?: string[] }; OR?: unknown } }) => {
+      findMany: vi.fn().mockImplementation(
+        (args?: {
+          where?: {
+            id?: { in?: string[] };
+            OR?: unknown;
+            category?: { slug?: string };
+            brand?: { slug?: string };
+          };
+        }) => {
           // The lexical call carries an OR filter; RAG hydration filters by
           // id list. Mirrors production, where each query hits its own rows.
           findManyCalls.push(args);
@@ -86,16 +93,30 @@ function buildService(options: {
           }
           const ids = args?.where?.id?.in;
           const rows = options.rows ?? [];
+          const scoped = ids === undefined ? rows : rows.filter((row) => ids.includes(row.id));
+          // Browse path: honor the category/brand slug filters like Prisma
+          // would, so filter tests stay faithful without a database.
+          const category = args?.where?.category?.slug;
+          const brand = args?.where?.brand?.slug;
           return Promise.resolve(
-            ids === undefined ? rows : rows.filter((row) => ids.includes(row.id)),
+            scoped.filter(
+              (row) =>
+                (category === undefined || row.category.slug === category) &&
+                (brand === undefined || row.brand.slug === brand),
+            ),
           );
-        }),
+        },
+      ),
     },
   } as unknown as PrismaService;
   const inventory = {
     getAvailabilityMap: vi
       .fn()
-      .mockImplementation((ids: string[]) => Promise.resolve(new Map(ids.map((id) => [id, 5])))),
+      .mockImplementation((ids: string[]) =>
+        Promise.resolve(
+          new Map(ids.map((id) => [id, options.stock?.get(id) ?? 5] as [string, number])),
+        ),
+      ),
   } as unknown as InventoryService;
   const service = new SearchService(retrieval, prisma, inventory, CONFIG);
   return { service, searchMock, fulltextMock, prisma, findManyCalls };
@@ -307,5 +328,78 @@ describe('SearchService (unit, mocked retrieval and database)', () => {
 
     const byPrice = await service.search({ q: 'Kingston', maxPrice: 60_00, limit: 12 });
     expect(byPrice.results.map((result) => result.product.id)).toEqual(['p2']);
+  });
+
+  it('filters by brand slug in both search and browse modes', async () => {
+    const acme = productRow('p-acme', {
+      name: 'Acme Widget',
+      brand: { id: 'brand-acme', name: 'Acme', slug: 'acme' },
+    });
+    const other = productRow('p-other', {
+      name: 'Other Widget',
+      brand: { id: 'brand-other', name: 'Other', slug: 'other' },
+    });
+    const { service } = buildService({
+      hits: [hit('a', 'p-acme', 0.05), hit('b', 'p-other', 0.04)],
+      rows: [acme, other],
+      lexicalRows: [acme, other],
+    });
+
+    const byBrand = await service.search({ q: 'Widget', brand: 'acme', limit: 12 });
+    expect(byBrand.results.map((result) => result.product.id)).toEqual(['p-acme']);
+
+    const browse = await service.search({ q: '', brand: 'other', limit: 12 });
+    expect(browse.results.map((result) => result.product.id)).toEqual(['p-other']);
+  });
+
+  it('filters out-of-stock products when inStock is set', async () => {
+    const available = productRow('p-available', { name: 'Available Widget' });
+    const soldOut = productRow('p-soldout', { name: 'Soldout Widget' });
+    const { service } = buildService({
+      hits: [hit('a', 'p-available', 0.05), hit('b', 'p-soldout', 0.09)],
+      rows: [available, soldOut],
+      lexicalRows: [available, soldOut],
+      stock: new Map([
+        ['p-available', 5],
+        ['p-soldout', 0],
+      ]),
+    });
+
+    const all = await service.search({ q: 'Widget', limit: 12 });
+    expect(all.results.map((result) => result.product.id).sort()).toEqual(
+      ['p-available', 'p-soldout'].sort(),
+    );
+
+    const inStock = await service.search({ q: 'Widget', inStock: '1', limit: 12 });
+    expect(inStock.results.map((result) => result.product.id)).toEqual(['p-available']);
+
+    const browse = await service.search({ q: '', inStock: 'true', limit: 12 });
+    expect(browse.results.map((result) => result.product.id)).toEqual(['p-available']);
+  });
+
+  it('applies explicit sort instead of relevance order', async () => {
+    const cheap = productRow('p-cheap', {
+      name: 'B Widget',
+      priceAmount: 10_00,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const expensive = productRow('p-expensive', {
+      name: 'A Widget',
+      priceAmount: 90_00,
+      createdAt: new Date('2026-06-01T00:00:00.000Z'),
+    });
+    const { service } = buildService({
+      hits: [hit('a', 'p-cheap', 0.09), hit('b', 'p-expensive', 0.01)],
+      rows: [cheap, expensive],
+    });
+
+    const cheapest = await service.search({ q: 'Widget', sort: 'price_asc', limit: 12 });
+    expect(cheapest.results.map((result) => result.product.id)).toEqual(['p-cheap', 'p-expensive']);
+
+    const priciest = await service.search({ q: 'Widget', sort: 'price_desc', limit: 12 });
+    expect(priciest.results.map((result) => result.product.id)).toEqual(['p-expensive', 'p-cheap']);
+
+    const newest = await service.search({ q: '', sort: 'newest', limit: 12 });
+    expect(newest.results.map((result) => result.product.id)).toEqual(['p-expensive', 'p-cheap']);
   });
 });

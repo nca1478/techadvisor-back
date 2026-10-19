@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 const LOCALE_PATTERN = /^[a-z]{2}(-[A-Z]{2})?$/;
+const sortSchema = z.enum(['price_asc', 'price_desc', 'name_asc', 'name_desc', 'newest']);
+
+export type SearchSort = z.output<typeof sortSchema>;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 /**
@@ -12,9 +15,11 @@ const CURRENCY_PATTERN = /^[A-Z]{3}$/;
  * accepted by `RetrievalService`: search boxes send short natural-language
  * queries, and the cap bounds embedding cost and full-text work per request
  * (ADR 0022). An empty/missing `q` browses the catalog by the remaining
- * filters only (category/maxPrice, SQL-only, see ADR 0064): every field is
- * exclusive, any of them may be empty.
+ * filters only (category/brand/sort/inStock/maxPrice, SQL-only, see ADR 0064):
+ * every field is exclusive, any of them may be empty.
  * Price bounds are minor-unit integers in the *requested* currency (ADR 0007).
+ * `sort` (same values as the catalog listing) replaces relevance order;
+ * `inStock` (`1`/`true`) keeps only products with available stock.
  */
 export const searchQuerySchema = z.object({
   q: z
@@ -24,6 +29,9 @@ export const searchQuerySchema = z.object({
     .optional()
     .default(''),
   category: z.string().trim().min(1).max(100).optional(),
+  brand: z.string().trim().min(1).max(100).optional(),
+  sort: sortSchema.optional(),
+  inStock: z.enum(['0', '1', 'true', 'false']).optional(),
   maxPrice: z.coerce.number().int().min(0).max(999_999_999).optional(),
   currency: z
     .string()

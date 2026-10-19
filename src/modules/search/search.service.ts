@@ -10,7 +10,7 @@ import { toAvailability } from '../inventory/inventory.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import type { CatalogCategoryDto, ProductListItemDto } from '../catalog/dto/catalog.dto.js';
 import { RetrievalService, type RetrievalHit } from '../retrieval/retrieval.service.js';
-import type { SearchQuery } from './search-query.schema.js';
+import type { SearchQuery, SearchSort } from './search-query.schema.js';
 import type { SearchResponseDto, SearchResultDto } from './dto/search.dto.js';
 
 /** Chunks pulled from retrieval before grouping (several chunks map to one product). */
@@ -121,6 +121,13 @@ export class SearchService {
       if (query.category !== undefined && row.category.slug !== query.category) {
         continue;
       }
+      if (query.brand !== undefined && row.brand.slug !== query.brand) {
+        continue;
+      }
+      const stock = toAvailability(availability.get(row.id) ?? 0);
+      if (isInStockOnly(query) && !stock.inStock) {
+        continue;
+      }
       if (isLexical) {
         // Catalog match wins over semantic neighbours: base score above any
         // RRF value, plus the chunk score when the product has both, so
@@ -160,10 +167,14 @@ export class SearchService {
       // Lexical matches exist: drop pure semantic neighbours (they have no
       // textual support for this query) and order matches deterministically.
       const lexicalResults = results.filter((result) => lexicalIds.has(result.product.id));
-      lexicalResults.sort(
-        (left, right) =>
-          right.score - left.score || left.product.name.localeCompare(right.product.name),
-      );
+      if (query.sort === undefined) {
+        lexicalResults.sort(
+          (left, right) =>
+            right.score - left.score || left.product.name.localeCompare(right.product.name),
+        );
+      } else {
+        sortSearchResults(lexicalResults, query.sort);
+      }
       this.logger.debug(
         `search: hits=${String(hits.length)} products=${String(lexicalResults.length)} degraded=${String(degraded)} lexical=${String(lexicalIds.size)}`,
       );
@@ -176,7 +187,11 @@ export class SearchService {
       };
     }
 
-    results.sort((left, right) => right.score - left.score);
+    if (query.sort === undefined) {
+      results.sort((left, right) => right.score - left.score);
+    } else {
+      sortSearchResults(results, query.sort);
+    }
 
     // Never log the query text: it may contain personal data.
     this.logger.debug(
@@ -188,10 +203,11 @@ export class SearchService {
 
   /**
    * Filter-only browse (empty `q`): ACTIVE products straight from SQL,
-   * optionally narrowed by category slug, then by resolved max price
-   * (base row or fixed override, ADR 0007). Deterministic name order, no
-   * retrieval and no embeddings. Score is 0 for every hit; the snippet
-   * falls back to the SQL description.
+   * optionally narrowed by category/brand slugs, then by resolved max price
+   * (base row or fixed override, ADR 0007) and stock. Explicit `sort`
+   * reorders in memory (prices are resolved per currency); otherwise the SQL
+   * name order is kept. No retrieval and no embeddings. Score is 0 for every
+   * hit; the snippet falls back to the SQL description.
    */
   private async browse(
     query: SearchQuery,
@@ -202,6 +218,7 @@ export class SearchService {
       where: {
         status: 'ACTIVE',
         ...(query.category !== undefined ? { category: { slug: query.category } } : {}),
+        ...(query.brand !== undefined ? { brand: { slug: query.brand } } : {}),
       },
       include: this.productInclude(locale, currency),
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
@@ -209,6 +226,7 @@ export class SearchService {
     });
     const availability = await this.inventory.getAvailabilityMap(rows.map((row) => row.id));
     const results: SearchResultDto[] = [];
+    const stockOnly = isInStockOnly(query);
     for (const row of rows) {
       const price = resolvePrice(
         { amount: row.priceAmount, currency: row.currency },
@@ -218,24 +236,22 @@ export class SearchService {
       if (query.maxPrice !== undefined && price.amount > query.maxPrice) {
         continue;
       }
+      const stock = toAvailability(availability.get(row.id) ?? 0);
+      if (stockOnly && !stock.inStock) {
+        continue;
+      }
       results.push({
-        product: this.toListItem(
-          row,
-          locale,
-          currency,
-          toAvailability(availability.get(row.id) ?? 0),
-        ),
+        product: this.toListItem(row, locale, currency, stock),
         score: 0,
         snippet: toSnippet(row.description.trim() === '' ? row.name : row.description),
       });
-      if (results.length >= query.limit) {
-        break;
-      }
     }
+    sortSearchResults(results, query.sort);
+    const limited = results.slice(0, query.limit);
     this.logger.debug(
-      `search: browse category=${query.category ?? '-'} results=${String(results.length)}`,
+      `search: browse category=${query.category ?? '-'} brand=${query.brand ?? '-'} results=${String(limited.length)}`,
     );
-    return { query: '', degraded: false, locale, currency, results };
+    return { query: '', degraded: false, locale, currency, results: limited };
   }
 
   /**
@@ -385,6 +401,63 @@ export class SearchService {
       })),
       locale,
     };
+  }
+}
+
+/**
+ * `inStock` arrives as a URL flag (`1`/`true` = only in stock, mirroring the
+ * listing page). Anything else (absent, `0`, `false`) means no stock filter.
+ */
+function isInStockOnly(query: SearchQuery): boolean {
+  return query.inStock === '1' || query.inStock === 'true';
+}
+
+/**
+ * Explicit ordering requested via `sort` (same values as the catalog
+ * listing). Without `sort` the caller keeps relevance order (score). Stable
+ * `id` tiebreak keeps pages deterministic.
+ */
+function sortSearchResults(results: SearchResultDto[], sort: SearchSort | undefined): void {
+  if (sort === undefined) {
+    return;
+  }
+  switch (sort) {
+    case 'price_asc':
+      results.sort(
+        (left, right) =>
+          left.product.priceAmount - right.product.priceAmount ||
+          left.product.id.localeCompare(right.product.id),
+      );
+      break;
+    case 'price_desc':
+      results.sort(
+        (left, right) =>
+          right.product.priceAmount - left.product.priceAmount ||
+          left.product.id.localeCompare(right.product.id),
+      );
+      break;
+    case 'name_asc':
+      results.sort(
+        (left, right) =>
+          left.product.name.localeCompare(right.product.name) ||
+          left.product.id.localeCompare(right.product.id),
+      );
+      break;
+    case 'name_desc':
+      results.sort(
+        (left, right) =>
+          right.product.name.localeCompare(left.product.name) ||
+          left.product.id.localeCompare(right.product.id),
+      );
+      break;
+    case 'newest':
+      results.sort(
+        (left, right) =>
+          new Date(right.product.createdAt).getTime() -
+            new Date(left.product.createdAt).getTime() ||
+          left.product.id.localeCompare(right.product.id),
+      );
+      break;
   }
 }
 

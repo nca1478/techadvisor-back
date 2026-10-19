@@ -307,6 +307,58 @@ describe('Search endpoint (e2e)', () => {
     expect(tooCheap.results).toEqual([]);
   });
 
+  it('browses by brand, inStock and sort without q', async () => {
+    const brandSlug = `e2e-search-brand-${suffix}`;
+
+    const byBrand = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ brand: brandSlug, limit: 24 })
+        .expect(200)
+    ).body as { results: { product: { id: string } }[] };
+    const ids = byBrand.results.map((result) => result.product.id);
+    expect(ids).toContain(headphoneId);
+    expect(ids).toContain(keyboardId);
+
+    const unknownBrand = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ brand: 'does-not-exist' })
+        .expect(200)
+    ).body as { results: unknown[] };
+    expect(unknownBrand.results).toEqual([]);
+
+    const inStock = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ brand: brandSlug, inStock: '1', limit: 24 })
+        .expect(200)
+    ).body as { results: { product: { id: string } }[] };
+    expect(inStock.results.map((result) => result.product.id)).toEqual(
+      expect.arrayContaining([headphoneId, keyboardId]),
+    );
+
+    const asc = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ brand: brandSlug, sort: 'price_asc', limit: 24 })
+        .expect(200)
+    ).body as { results: { product: { id: string; priceAmount: number } }[] };
+    expect(asc.results.map((result) => result.product.id)).toEqual([headphoneId, keyboardId]);
+    const desc = (
+      await request(app.getHttpServer())
+        .get('/api/v1/search')
+        .query({ brand: brandSlug, sort: 'price_desc', limit: 24 })
+        .expect(200)
+    ).body as { results: { product: { id: string; priceAmount: number } }[] };
+    expect(desc.results.map((result) => result.product.id)).toEqual([keyboardId, headphoneId]);
+
+    await request(app.getHttpServer())
+      .get('/api/v1/search')
+      .query({ sort: 'not-a-sort' })
+      .expect(400);
+  });
+
   it('validates q length and currency', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/search')

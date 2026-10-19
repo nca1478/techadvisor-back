@@ -40,6 +40,18 @@ export class SearchController {
     description: 'Natural-language query (0..200 chars). Empty browses by filters.',
   })
   @ApiQuery({ name: 'category', required: false, description: 'Category slug filter.' })
+  @ApiQuery({ name: 'brand', required: false, description: 'Brand slug filter.' })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    description:
+      'Explicit ordering (price_asc, price_desc, name_asc, name_desc, newest). Default: relevance.',
+  })
+  @ApiQuery({
+    name: 'inStock',
+    required: false,
+    description: 'When 1/true, only products in stock.',
+  })
   @ApiQuery({
     name: 'maxPrice',
     required: false,
