@@ -25,6 +25,7 @@ import { ErrorResponseDto } from '../../common/errors/error-response.dto.js';
 import { ApiUniformErrorResponses } from '../../common/errors/api-error-responses.decorator.js';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe.js';
 import { getOptionalUser, OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
+import { AiEnabledGuard } from './ai-enabled.guard.js';
 import {
   feedbackBodySchema,
   productQaBodySchema,
@@ -57,7 +58,7 @@ import { SupportService } from './support/support.service.js';
  */
 @ApiTags('advisor')
 @Controller('advisor')
-@UseGuards(ThrottlerGuard, OptionalJwtAuthGuard)
+@UseGuards(ThrottlerGuard, OptionalJwtAuthGuard, AiEnabledGuard)
 @SkipThrottle({ auth: true, search: true })
 @ApiUniformErrorResponses(ErrorResponseDto)
 @ApiTooManyRequestsResponse({ type: ErrorResponseDto, description: 'Rate limit exceeded.' })

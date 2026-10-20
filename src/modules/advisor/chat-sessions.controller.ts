@@ -34,6 +34,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
+import { AiEnabledGuard } from './ai-enabled.guard.js';
 import {
   chatMessageBodySchema,
   chatSessionParamsSchema,
@@ -66,6 +67,7 @@ export class ChatSessionsController {
   ) {}
 
   @Post()
+  @UseGuards(AiEnabledGuard)
   @ApiOperation({ summary: 'Create a chat session (authenticated user, or anonymous guest)' })
   @ApiOkResponse({ type: ChatSessionResponseDto })
   createSession(
@@ -77,7 +79,7 @@ export class ChatSessionsController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AiEnabledGuard)
   @ApiOperation({ summary: "List the caller's own chat sessions (newest first)" })
   @ApiOkResponse({ type: [ChatSessionResponseDto] })
   @ApiUnauthorizedResponse({ type: ErrorResponseDto, description: 'Authentication required.' })
@@ -86,6 +88,7 @@ export class ChatSessionsController {
   }
 
   @Get(':id')
+  @UseGuards(AiEnabledGuard)
   @ApiOperation({ summary: 'Read one owned session with its message history' })
   @ApiOkResponse({ type: ChatSessionHistoryResponseDto })
   @ApiNotFoundResponse({
@@ -102,6 +105,7 @@ export class ChatSessionsController {
   }
 
   @Delete(':id')
+  @UseGuards(AiEnabledGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Permanently delete one owned session with its messages' })
   @ApiNotFoundResponse({
@@ -118,6 +122,7 @@ export class ChatSessionsController {
   }
 
   @Post(':id/messages')
+  @UseGuards(AiEnabledGuard)
   @ApiOperation({
     summary:
       'Append one message (legacy role+content, 201) or run the buying advisor (content only: 200 JSON, or SSE with Accept: text/event-stream)',

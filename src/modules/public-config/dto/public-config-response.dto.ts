@@ -20,4 +20,10 @@ export class PublicConfigResponseDto {
     description: 'Locales supported by the API (BCP 47).',
   })
   supportedLocales!: string[];
+
+  @ApiProperty({
+    example: true,
+    description: 'Storefront AI kill-switch (AI_ENABLED): false hides advisor UI.',
+  })
+  aiEnabled!: boolean;
 }

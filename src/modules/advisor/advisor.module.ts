@@ -5,6 +5,7 @@ import { AuthSecurityModule } from '../auth/auth-security.module.js';
 import { OptionalJwtAuthGuard } from '../cart/optional-jwt-auth.guard.js';
 import { AdvisorController } from './advisor.controller.js';
 import { AdvisorService } from './advisor.service.js';
+import { AiEnabledGuard } from './ai-enabled.guard.js';
 import { CompareService } from './compare/compare.service.js';
 import { ChatSessionsController } from './chat-sessions.controller.js';
 import { ChatSessionsService } from './chat-sessions.service.js';
@@ -48,6 +49,7 @@ import { SupportService } from './support/support.service.js';
     RecommendService,
     SupportService,
     OptionalJwtAuthGuard,
+    AiEnabledGuard,
   ],
   exports: [IntentService],
 })

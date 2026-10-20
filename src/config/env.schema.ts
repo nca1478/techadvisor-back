@@ -318,6 +318,18 @@ const envSchema = z
       )
       .default(false),
     KEEPALIVE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
+    // Storefront AI kill-switch (see ADR ai-enabled): when false, the public
+    // advisor endpoints answer 403 and the frontend hides the widget, support
+    // assistant, product QA and comparator. Admin endpoints are unaffected.
+    AI_ENABLED: z
+      .preprocess(
+        (value) =>
+          typeof value === 'string'
+            ? value.trim().toLowerCase() === 'true' || value.trim() === '1'
+            : value,
+        z.boolean(),
+      )
+      .default(true),
     // Password-reset via email OTP (see ADR 0078). `fake` logs instead of
     // sending (dev/test); `resend` uses the Resend HTTP API and requires
     // RESEND_API_KEY + a verified sender in MAIL_FROM.

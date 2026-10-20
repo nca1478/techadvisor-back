@@ -26,6 +26,7 @@ export class PublicConfigController {
       supportedCurrencies: this.config.SUPPORTED_CURRENCIES,
       defaultLocale: this.config.DEFAULT_LOCALE,
       supportedLocales: this.config.SUPPORTED_LOCALES,
+      aiEnabled: this.config.AI_ENABLED,
     };
   }
 }
