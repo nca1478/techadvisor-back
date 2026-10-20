@@ -23,6 +23,7 @@ describe('Public config (e2e)', () => {
           supportedCurrencies: ['USD', 'EUR'],
           defaultLocale: 'en',
           supportedLocales: ['en', 'es'],
+          aiEnabled: true,
         });
       });
   });
