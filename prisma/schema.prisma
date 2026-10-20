@@ -37,6 +37,7 @@ model User {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  passwordResets PasswordReset[]
   carts        Cart[]
   orders       Order[]
   chatSessions ChatSession[]
@@ -63,6 +64,30 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+/**
+ * One-time password-reset challenges for LOCAL users (see ADR 0078).
+ * Only the SHA-256 hash of the 6-digit OTP and of the follow-up reset token
+ * is stored (fast hash is enough: both values are high-entropy randoms).
+ * Rows are append-only until consumed/expired; cleanup purges old rows.
+ */
+model PasswordReset {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash            String    @map("code_hash")
+  expiresAt           DateTime  @map("expires_at")
+  attempts            Int       @default(0)
+  verifiedAt          DateTime? @map("verified_at")
+  resetTokenHash      String?   @unique @map("reset_token_hash")
+  resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
+  consumedAt          DateTime? @map("consumed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("password_resets")
 }
 
 // --- Catalog (Fase 1) --------------------------------------------------------

@@ -111,6 +111,19 @@ export class UsersService {
     }
   }
 
+  /** Sets a new local password (password-reset flow). Re-hashes always. */
+  async setPassword(
+    id: string,
+    plain: string,
+    passwords?: { hash(password: string): Promise<string> },
+  ): Promise<void> {
+    const hasher = passwords ?? this.passwords;
+    await this.prisma.user.update({
+      where: { id },
+      data: { passwordHash: await hasher.hash(plain) },
+    });
+  }
+
   /** Internal: full row including `passwordHash`, for the login check only. */
   async findByEmailWithHash(email: string): Promise<{
     id: string;

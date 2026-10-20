@@ -318,6 +318,32 @@ const envSchema = z
       )
       .default(false),
     KEEPALIVE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
+    // Password-reset via email OTP (see ADR 0078). `fake` logs instead of
+    // sending (dev/test); `resend` uses the Resend HTTP API and requires
+    // RESEND_API_KEY + a verified sender in MAIL_FROM.
+    MAIL_PROVIDER: z
+      .enum(['fake', 'resend'], { error: 'MAIL_PROVIDER must be fake or resend' })
+      .default('fake'),
+    RESEND_API_KEY: z.preprocess(
+      emptyToUndefined,
+      z.string().min(1, { error: 'RESEND_API_KEY must be a non-empty key' }).optional(),
+    ),
+    MAIL_FROM: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .min(1, { error: 'MAIL_FROM must be a sender like "Shop <no-reply@example.com>"' })
+        .optional(),
+    ),
+    MAIL_REPLY_TO: z.preprocess(
+      emptyToUndefined,
+      z.string().min(1, { error: 'MAIL_REPLY_TO must be a non-empty email' }).optional(),
+    ),
+    PASSWORD_RESET_OTP_TTL_MIN: z.coerce.number().int().min(5).max(60).default(10),
+    PASSWORD_RESET_OTP_LENGTH: z.coerce.number().int().min(4).max(8).default(6),
+    PASSWORD_RESET_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(10).default(5),
+    PASSWORD_RESET_REQUEST_COOLDOWN_SEC: z.coerce.number().int().min(30).max(600).default(60),
+    PASSWORD_RESET_TOKEN_TTL_MIN: z.coerce.number().int().min(5).max(60).default(15),
   })
   .refine((env) => env.SUPPORTED_CURRENCIES.includes(env.BASE_CURRENCY), {
     error: 'BASE_CURRENCY must be listed in SUPPORTED_CURRENCIES',
@@ -360,6 +386,15 @@ const envSchema = z
       error:
         'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when DOCUMENTS_DRIVER is supabase',
       path: ['SUPABASE_URL'],
+    },
+  )
+  .refine(
+    (env) =>
+      env.MAIL_PROVIDER === 'fake' ||
+      (env.RESEND_API_KEY !== undefined && env.MAIL_FROM !== undefined),
+    {
+      error: 'RESEND_API_KEY and MAIL_FROM are required when MAIL_PROVIDER is resend',
+      path: ['RESEND_API_KEY'],
     },
   );
 
